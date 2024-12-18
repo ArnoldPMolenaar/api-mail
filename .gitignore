@@ -1,0 +1,12 @@
+# Dev build
+build/
+tmp/
+
+# Jetbrains
+.idea/
+
+# Environment variables
+.env
+
+# Valkey
+data
