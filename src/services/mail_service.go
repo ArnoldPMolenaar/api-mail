@@ -3,7 +3,10 @@ package services
 import (
 	"api-mail/main/src/database"
 	"api-mail/main/src/models"
+	// mail "github.com/xhit/go-simple-mail/v2"
 )
+
+// TODO: Put the email settings into valkey.
 
 // IsMailAvailable method to check if a mail is available.
 func IsMailAvailable(mail string) (bool, error) {
@@ -42,4 +45,13 @@ func GetAppMail(app, mail, mailType string) (models.AppMail, error) {
 	}
 
 	return appMail, nil
+}
+
+func SendSMTPMail(fromName, fromMail, to, subject, body, mimeType string, ccs []string, bccs []string) error {
+	// server := mail.NewSMTPClient()
+
+	// SMTP server configuration.
+	//server.Host =
+
+	return nil
 }
