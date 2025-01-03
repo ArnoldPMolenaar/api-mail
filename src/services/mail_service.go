@@ -47,6 +47,25 @@ func GetAppMail(app, mail, mailType string) (models.AppMail, error) {
 	return appMail, nil
 }
 
+// GetAppMailsByMail finds all active mails by mail.
+func GetAppMailsByMail(mail string) ([]models.AppMail, error) {
+	var appMails []models.AppMail
+	if result := database.Pg.Find(&appMails, "mail_name = ?", mail); result.Error != nil {
+		return appMails, result.Error
+	}
+
+	return appMails, nil
+}
+
+// IsMailInSendMails method to check if a mail is in send-mails.
+func IsMailInSendMails(mail string) (bool, error) {
+	if result := database.Pg.Limit(1).Find(&models.SendMail{}, "mail_name = ?", mail); result.Error != nil {
+		return false, result.Error
+	} else {
+		return result.RowsAffected == 1, nil
+	}
+}
+
 func SendSMTPMail(fromName, fromMail, to, subject, body, mimeType string, ccs []string, bccs []string) error {
 	// server := mail.NewSMTPClient()
 

@@ -12,11 +12,11 @@ func Migrate(db *gorm.DB) error {
 		models.App{},
 		models.Mail{},
 		models.MailType{},
-		models.AppMail{},
+		models.Smtp{},
 		models.Azure{},
 		models.Gmail{},
+		models.AppMail{},
 		models.DkimCanonicalization{},
-		models.Smtp{},
 		models.SendMail{},
 		models.SendMailCc{},
 		models.SendMailBcc{})

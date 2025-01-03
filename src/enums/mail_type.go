@@ -24,3 +24,17 @@ func ToMailType(s string) (MailType, error) {
 		return "", errors.New("invalid MailType")
 	}
 }
+
+// ToString converts a MailType enum to a string.
+func (mt *MailType) ToString() string {
+	switch *mt {
+	case Azure:
+		return "Azure"
+	case Gmail:
+		return "Gmail"
+	case SMTP:
+		return "SMTP"
+	default:
+		return ""
+	}
+}

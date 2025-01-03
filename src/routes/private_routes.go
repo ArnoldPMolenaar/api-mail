@@ -13,4 +13,8 @@ func PrivateRoutes(a *fiber.App) {
 
 	// Register route for POST /v1/mail/send.
 	route.Post("/mail/send", controllers.SendMail)
+
+	// Register CRUD routes for /v1/smtp.
+	route.Post("/smtps", controllers.CreateSmtp)
+	route.Put("/smtps", controllers.UpdateSmtp)
 }
