@@ -12,9 +12,9 @@ type Smtp struct {
 	Username             string    `json:"username"`
 	Host                 string    `json:"host"`
 	Port                 int       `json:"port"`
-	DkimPrivateKey       string    `json:"dkimPrivateKey"`
-	DkimDomain           string    `json:"dkimDomain"`
-	DkimCanonicalization string    `json:"dkimCanonicalization"`
+	DkimPrivateKey       *string   `json:"dkimPrivateKey"`
+	DkimDomain           *string   `json:"dkimDomain"`
+	DkimCanonicalization *string   `json:"dkimCanonicalization"`
 	Primary              bool      `json:"primary"`
 	CreatedAt            time.Time `json:"createdAt"`
 	UpdatedAt            time.Time `json:"updatedAt"`

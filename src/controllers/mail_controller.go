@@ -63,12 +63,25 @@ func SendMail(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.MailTypeExists, "MailType does not exist.")
 	}
 
-	// TODO: Save mail to the DB.
+	if err := services.CreateSendMail(sendMail); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	}
 
 	switch mailType {
 	case enums.SMTP:
-		// TODO: implement SMTP mail sending.
-
+		if err := services.SendSmtpMail(
+			sendMail.App,
+			sendMail.Mail,
+			sendMail.FromName,
+			sendMail.FromMail,
+			sendMail.To,
+			sendMail.Subject,
+			sendMail.Body,
+			sendMail.MimeType,
+			sendMail.Ccs,
+			sendMail.Bccs); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
+		}
 	case enums.Gmail:
 		// TODO: implement Gmail mail sending.
 	case enums.Azure:

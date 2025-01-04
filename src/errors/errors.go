@@ -7,5 +7,6 @@ const (
 	MailTypeExists = "mailTypeExists"
 	SmtpAvailable  = "smtpAvailable"
 	SmtpExists     = "smtpExists"
+	SendMail       = "sendMail"
 	// Add more error codes as needed.
 )

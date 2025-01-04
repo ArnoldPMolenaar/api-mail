@@ -15,9 +15,9 @@ type Smtp struct {
 	Password                 string `gorm:"not null"`
 	Host                     string `gorm:"not null"`
 	Port                     int    `gorm:"not null"`
-	DkimPrivateKey           string
-	DkimDomain               string
-	DkimCanonicalizationName string
+	DkimPrivateKey           *string
+	DkimDomain               *string
+	DkimCanonicalizationName *string
 	CreatedAt                time.Time
 	UpdatedAt                time.Time
 	DeletedAt                gorm.DeletedAt `gorm:"index"`
