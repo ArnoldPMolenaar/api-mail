@@ -80,12 +80,23 @@ func UpdateSmtp(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
+	// Check if the parameter is the same in the body.
+	mail := c.Params("mail")
+	if mail != req.Mail {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Mail parameter does not match the body.")
+	}
+
 	// Find the SMTP.
 	smtp, err := services.GetSmtp(req.App, req.Mail)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if smtp.AppName == "" && smtp.MailName == "" {
 		return errorutil.Response(c, fiber.StatusNotFound, errors.SmtpExists, "Smtp does not exist.")
+	}
+
+	// Check if the smtp data has been modified since it was last fetched.
+	if req.UpdatedAt.Unix() < smtp.UpdatedAt.Unix() {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.OutOfSync, "Data is out of sync.")
 	}
 
 	// Update smtp.

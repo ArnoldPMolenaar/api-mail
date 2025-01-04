@@ -80,6 +80,7 @@ func UpdateSmtp(oldSmtp *models.Smtp, req *requests.UpdateSmtp) error {
 		DkimPrivateKey:           req.DkimPrivateKey,
 		DkimDomain:               req.DkimDomain,
 		DkimCanonicalizationName: req.DkimCanonicalization,
+		CreatedAt:                oldSmtp.CreatedAt,
 	}
 
 	if req.Password != "" {
