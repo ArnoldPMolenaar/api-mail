@@ -10,6 +10,33 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// GetSmtp func for getting an SMTP record.
+func GetSmtp(c *fiber.Ctx) error {
+	// Get the app and mail from the URL.
+	app := c.Params("app")
+	mail := c.Params("mail")
+
+	// Check if app exists.
+	if available, err := services.IsAppAvailable(app); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	}
+
+	// Find the SMTP.
+	smtp, err := services.GetSmtp(app, mail)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if smtp.AppName == "" && smtp.MailName == "" {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.SmtpExists, "Smtp does not exist.")
+	}
+
+	response := responses.Smtp{}
+	response.SetSmtp(smtp)
+
+	return c.JSON(response)
+}
+
 // CreateSmtp func for creating a new SMTP.
 func CreateSmtp(c *fiber.Ctx) error {
 	// Create a new smtp struct for the request.
