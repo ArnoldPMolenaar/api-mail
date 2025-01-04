@@ -62,6 +62,10 @@ func UpdateSmtp(c *fiber.Ctx) error {
 	// Create a new smtp struct for the request.
 	req := &requests.UpdateSmtp{}
 
+	// Get the app and mail from the URL.
+	app := c.Params("app")
+	mail := c.Params("mail")
+
 	// Check, if received JSON data is parsed.
 	if err := c.BodyParser(req); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
@@ -74,20 +78,14 @@ func UpdateSmtp(c *fiber.Ctx) error {
 	}
 
 	// Check if app exists.
-	if available, err := services.IsAppAvailable(req.App); err != nil {
+	if available, err := services.IsAppAvailable(app); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if !available {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
-	// Check if the parameter is the same in the body.
-	mail := c.Params("mail")
-	if mail != req.Mail {
-		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, "Mail parameter does not match the body.")
-	}
-
 	// Find the SMTP.
-	smtp, err := services.GetSmtp(req.App, req.Mail)
+	smtp, err := services.GetSmtp(app, mail)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if smtp.AppName == "" && smtp.MailName == "" {
@@ -105,7 +103,7 @@ func UpdateSmtp(c *fiber.Ctx) error {
 	}
 
 	// Return the smtp.
-	smtp, err = services.GetSmtp(req.App, req.Mail)
+	smtp, err = services.GetSmtp(app, mail)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
@@ -114,4 +112,33 @@ func UpdateSmtp(c *fiber.Ctx) error {
 	response.SetSmtp(smtp)
 
 	return c.JSON(response)
+}
+
+// DeleteSmtp func for deleting a SMTP record.
+func DeleteSmtp(c *fiber.Ctx) error {
+	// Get the app and mail from the URL.
+	app := c.Params("app")
+	mail := c.Params("mail")
+
+	// Check if app exists.
+	if available, err := services.IsAppAvailable(app); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	}
+
+	// Find the SMTP.
+	smtp, err := services.GetSmtp(app, mail)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if smtp.AppName == "" && smtp.MailName == "" {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.SmtpExists, "Smtp does not exist.")
+	}
+
+	// Delete the SMTP.
+	if err := services.DeleteSmtp(smtp); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
 }

@@ -3,7 +3,7 @@ package models
 import (
 	"api-mail/main/src/enums"
 	"api-mail/main/src/utils"
-	"database/sql"
+	"gorm.io/gorm"
 	"os"
 	"time"
 )
@@ -20,7 +20,7 @@ type Smtp struct {
 	DkimCanonicalizationName string
 	CreatedAt                time.Time
 	UpdatedAt                time.Time
-	DeletedAt                sql.NullTime `gorm:"index"`
+	DeletedAt                gorm.DeletedAt `gorm:"index"`
 
 	// Relationships.
 	App                  App                  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:AppName;references:Name"`

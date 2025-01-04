@@ -71,8 +71,8 @@ func CreateSmtp(req *requests.CreateSmtp) error {
 func UpdateSmtp(oldSmtp *models.Smtp, req *requests.UpdateSmtp) error {
 	smtpType := enums.SMTP
 	smtp := &models.Smtp{
-		AppName:                  req.App,
-		MailName:                 req.Mail,
+		AppName:                  oldSmtp.AppName,
+		MailName:                 oldSmtp.MailName,
 		Username:                 req.Username,
 		Password:                 oldSmtp.Password,
 		Host:                     req.Host,
@@ -95,46 +95,22 @@ func UpdateSmtp(oldSmtp *models.Smtp, req *requests.UpdateSmtp) error {
 	}
 
 	if result := database.Pg.Save(&models.AppMail{
-		AppName:  req.App,
-		MailName: req.Mail,
+		AppName:  oldSmtp.AppName,
+		MailName: oldSmtp.MailName,
 		MailType: smtpType.ToString(),
 		Primary:  req.Primary,
 	}); result.Error != nil {
 		return result.Error
 	}
 
-	// The update was an insert because the primary key changed.
-	// Delete the old record. (AppMail record is also deleted by this action)
-	// TODO: move to delete.
-	/*
-		if oldSmtp.AppName != req.App || oldSmtp.MailName != req.Mail {
-			if result := database.Pg.Delete(&models.Smtp{
-				AppName:  oldSmtp.AppName,
-				MailName: oldSmtp.MailName,
-			}); result.Error != nil {
-				return result.Error
-			}
-		}
-	*/
+	return nil
+}
 
-	// Check if old MailName has no references.
-	/*
-		if oldSmtp.MailName != req.Mail {
-			if appMails, err := GetAppMailsByMail(oldSmtp.MailName); err != nil {
-				return err
-			} else if len(appMails) == 0 {
-				if isInSendMails, err := IsMailInSendMails(oldSmtp.MailName); err != nil {
-					return err
-				} else if !isInSendMails {
-					if result := database.Pg.Delete(&models.Mail{
-						Name: oldSmtp.MailName,
-					}); result.Error != nil {
-						return result.Error
-					}
-				}
-			}
-		}
-	*/
+// DeleteSmtp deletes a existing smtp.
+func DeleteSmtp(smtp *models.Smtp) error {
+	if result := database.Pg.Delete(smtp); result.Error != nil {
+		return result.Error
+	}
 
 	return nil
 }
