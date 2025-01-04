@@ -18,4 +18,5 @@ func PrivateRoutes(a *fiber.App) {
 	route.Post("/smtps", controllers.CreateSmtp)
 	route.Put("/smtps/:app/:mail", controllers.UpdateSmtp)
 	route.Delete("/smtps/:app/:mail", controllers.DeleteSmtp)
+	route.Put("/smtps/:app/:mail/restore", controllers.RestoreSmtp)
 }

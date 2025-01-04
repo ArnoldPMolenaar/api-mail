@@ -17,9 +17,15 @@ func IsSmtpAvailable(app, mail string) (bool, error) {
 }
 
 // GetSmtp gets the smtp.
-func GetSmtp(app, mail string) (*models.Smtp, error) {
+func GetSmtp(app, mail string, unscoped ...bool) (*models.Smtp, error) {
 	smtp := &models.Smtp{}
-	if result := database.Pg.Find(smtp, "app_name = ? AND mail_name = ?", app, mail); result.Error != nil {
+	query := database.Pg
+
+	if len(unscoped) > 0 && unscoped[0] {
+		query = query.Unscoped()
+	}
+
+	if result := query.Find(smtp, "app_name = ? AND mail_name = ?", app, mail); result.Error != nil {
 		return nil, result.Error
 	}
 
@@ -109,6 +115,15 @@ func UpdateSmtp(oldSmtp *models.Smtp, req *requests.UpdateSmtp) error {
 // DeleteSmtp deletes a existing smtp.
 func DeleteSmtp(smtp *models.Smtp) error {
 	if result := database.Pg.Delete(smtp); result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
+
+// RestoreSmtp restores a deleted smtp.
+func RestoreSmtp(smtp *models.Smtp) error {
+	if result := database.Pg.Model(&smtp).Unscoped().Update("deleted_at", nil); result.Error != nil {
 		return result.Error
 	}
 

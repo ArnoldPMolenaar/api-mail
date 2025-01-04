@@ -142,3 +142,32 @@ func DeleteSmtp(c *fiber.Ctx) error {
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+// RestoreSmtp func for restoring a deleted SMTP record.
+func RestoreSmtp(c *fiber.Ctx) error {
+	// Get the app and mail from the URL.
+	app := c.Params("app")
+	mail := c.Params("mail")
+
+	// Check if app exists.
+	if available, err := services.IsAppAvailable(app); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
+	}
+
+	// Find the SMTP.
+	smtp, err := services.GetSmtp(app, mail, true)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if smtp.AppName == "" && smtp.MailName == "" {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.SmtpExists, "Smtp does not exist.")
+	}
+
+	// Restore the SMTP.
+	if err := services.RestoreSmtp(smtp); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
