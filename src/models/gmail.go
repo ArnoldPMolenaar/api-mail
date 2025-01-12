@@ -1,22 +1,22 @@
 package models
 
 import (
-	"database/sql"
+	"gorm.io/gorm"
 	"time"
 )
 
 type Gmail struct {
-	AppName   string `gorm:"primaryKey:true;not null;autoIncrement:false"`
-	MailName  string `gorm:"primaryKey:true;not null;autoIncrement:false"`
-	ClientID  string `gorm:"primaryKey:true;not null;autoIncrement:false"`
-	Secret    string `gorm:"not null"`
-	Token     string
-	User      string `gorm:"not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime `gorm:"index"`
+	gorm.Model
+	AppMailID    uint   `gorm:"not null"`
+	ClientID     string `gorm:"not null"`
+	Secret       string `gorm:"not null"`
+	AccessToken  *string
+	RefreshToken *string
+	TokenType    *string
+	Expiry       *time.Time
+	ExpiresIn    *int64
+	User         string `gorm:"not null"`
 
 	// Relationships.
-	App  App  `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:AppName;references:Name"`
-	Mail Mail `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:MailName;references:Name"`
+	AppMail AppMail `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:AppMailID;references:ID"`
 }

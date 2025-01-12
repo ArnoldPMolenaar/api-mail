@@ -7,6 +7,7 @@ import (
 	"api-mail/main/src/enums"
 	"api-mail/main/src/models"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/valkey-io/valkey-go"
@@ -16,16 +17,19 @@ import (
 
 // IsSmtpAvailable checks if the smtp exists.
 func IsSmtpAvailable(app, mail string) (bool, error) {
-	if result := database.Pg.Limit(1).Find(&models.Smtp{}, "app_name = ? AND mail_name = ?", app, mail); result.Error != nil {
+	var count int64
+	if result := database.Pg.Model(&models.Smtp{}).
+		Joins("JOIN app_mails ON app_mails.id = smtps.app_mail_id").
+		Where("app_mails.app_name = ? AND app_mails.mail_name = ?", app, mail).
+		Count(&count); result.Error != nil {
 		return false, result.Error
-	} else {
-		return result.RowsAffected == 1, nil
 	}
+	return count > 0, nil
 }
 
 // IsSmtpInCache checks if the smtp exists in the cache.
-func IsSmtpInCache(app, mail string) (bool, error) {
-	key := cacheKey(app, mail)
+func IsSmtpInCache(id uint) (bool, error) {
+	key := smtpCacheKey(id)
 
 	result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Exists().Key(key).Build())
 	if result.Error() != nil {
@@ -40,8 +44,21 @@ func IsSmtpInCache(app, mail string) (bool, error) {
 	return value == 1, nil
 }
 
+// GetSmtpIDByAppMailID gets the smtp id by app mail id.
+func GetSmtpIDByAppMailID(appMailID uint) (uint, error) {
+	var smtpID uint
+
+	if result := database.Pg.Model(&models.Smtp{}).
+		Where("app_mail_id = ?", appMailID).
+		Pluck("id", &smtpID); result.Error != nil {
+		return 0, result.Error
+	}
+
+	return smtpID, nil
+}
+
 // GetSmtp gets the smtp.
-func GetSmtp(app, mail string, unscoped ...bool) (*models.Smtp, error) {
+func GetSmtp(id uint, unscoped ...bool) (*models.Smtp, error) {
 	smtp := &models.Smtp{}
 	query := database.Pg
 
@@ -49,7 +66,7 @@ func GetSmtp(app, mail string, unscoped ...bool) (*models.Smtp, error) {
 		query = query.Unscoped()
 	}
 
-	if result := query.Find(smtp, "app_name = ? AND mail_name = ?", app, mail); result.Error != nil {
+	if result := query.Preload("AppMail").Find(smtp, "id = ?", id); result.Error != nil {
 		return nil, result.Error
 	}
 
@@ -57,8 +74,8 @@ func GetSmtp(app, mail string, unscoped ...bool) (*models.Smtp, error) {
 }
 
 // GetSmtpFromCache gets the smtp from the cache.
-func GetSmtpFromCache(app, mail string) (*models.Smtp, error) {
-	key := cacheKey(app, mail)
+func GetSmtpFromCache(id uint) (*models.Smtp, error) {
+	key := smtpCacheKey(id)
 
 	result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Get().Key(key).Build())
 	if result.Error() != nil {
@@ -79,11 +96,9 @@ func GetSmtpFromCache(app, mail string) (*models.Smtp, error) {
 }
 
 // CreateSmtp creates a new smtp.
-func CreateSmtp(req *requests.CreateSmtp) error {
+func CreateSmtp(req *requests.CreateSmtp) (*models.Smtp, error) {
 	smtpType := enums.SMTP
 	smtp := &models.Smtp{
-		AppName:                  req.App,
-		MailName:                 req.Mail,
 		Username:                 req.Username,
 		Password:                 req.Password,
 		Host:                     req.Host,
@@ -91,37 +106,50 @@ func CreateSmtp(req *requests.CreateSmtp) error {
 		DkimPrivateKey:           req.DkimPrivateKey,
 		DkimDomain:               req.DkimDomain,
 		DkimCanonicalizationName: req.DkimCanonicalization,
+		AppMail: models.AppMail{
+			AppName:  req.App,
+			MailName: req.Mail,
+		},
+	}
+
+	if appMail, err := GetAppMail(req.App, req.Mail); err != nil {
+		return nil, err
+	} else if appMail.ID != 0 {
+		smtp.AppMail = appMail
+	}
+
+	if req.Primary {
+		smtp.AppMail.PrimaryType = sql.NullString{String: *smtpType.ToString(), Valid: true}
+
+		if smtp.AppMail.ID != 0 {
+			if result := database.Pg.Save(smtp.AppMail); result.Error != nil {
+				return nil, result.Error
+			}
+		}
 	}
 
 	if err := smtp.EncryptPassword(); err != nil {
-		return err
+		return nil, err
 	}
 
-	if result := database.Pg.FirstOrCreate(&models.Mail{
-		Name: req.Mail,
-	}); result.Error != nil {
-		return result.Error
+	if smtp.AppMail.ID == 0 {
+		if result := database.Pg.FirstOrCreate(&models.Mail{
+			Name: req.Mail,
+		}); result.Error != nil {
+			return nil, result.Error
+		}
 	}
 
 	if result := database.Pg.Create(smtp); result.Error != nil {
-		return result.Error
+		return nil, result.Error
 	}
 
-	if result := database.Pg.Create(&models.AppMail{
-		AppName:  req.App,
-		MailName: req.Mail,
-		MailType: smtpType.ToString(),
-		Primary:  req.Primary,
-	}); result.Error != nil {
-		return result.Error
-	}
-
-	return nil
+	return smtp, nil
 }
 
 // SetSmtpToCache sets the smtp to the cache.
 func SetSmtpToCache(smtp *models.Smtp) error {
-	key := cacheKey(smtp.AppName, smtp.MailName)
+	key := smtpCacheKey(smtp.ID)
 
 	value, err := json.Marshal(smtp)
 	if err != nil {
@@ -143,50 +171,45 @@ func SetSmtpToCache(smtp *models.Smtp) error {
 }
 
 // UpdateSmtp updates a existing smtp.
-func UpdateSmtp(oldSmtp *models.Smtp, req *requests.UpdateSmtp) error {
+func UpdateSmtp(oldSmtp *models.Smtp, req *requests.UpdateSmtp) (*models.Smtp, error) {
 	smtpType := enums.SMTP
-	smtp := &models.Smtp{
-		AppName:                  oldSmtp.AppName,
-		MailName:                 oldSmtp.MailName,
-		Username:                 req.Username,
-		Password:                 oldSmtp.Password,
-		Host:                     req.Host,
-		Port:                     req.Port,
-		DkimPrivateKey:           req.DkimPrivateKey,
-		DkimDomain:               req.DkimDomain,
-		DkimCanonicalizationName: req.DkimCanonicalization,
-		CreatedAt:                oldSmtp.CreatedAt,
-	}
+	oldSmtp.Username = req.Username
+	oldSmtp.Host = req.Host
+	oldSmtp.Port = req.Port
+	oldSmtp.DkimPrivateKey = req.DkimPrivateKey
+	oldSmtp.DkimDomain = req.DkimDomain
+	oldSmtp.DkimCanonicalizationName = req.DkimCanonicalization
 
 	if req.Password != "" {
-		smtp.Password = req.Password
-		if err := smtp.EncryptPassword(); err != nil {
-			return err
+		oldSmtp.Password = req.Password
+		if err := oldSmtp.EncryptPassword(); err != nil {
+			return nil, err
 		}
 	}
 
-	if result := database.Pg.Save(smtp); result.Error != nil {
-		return result.Error
+	if req.Primary && (!oldSmtp.AppMail.PrimaryType.Valid || oldSmtp.AppMail.PrimaryType.String != *smtpType.ToString()) {
+		oldSmtp.AppMail.PrimaryType = sql.NullString{String: *smtpType.ToString(), Valid: true}
+	} else if !req.Primary && oldSmtp.AppMail.PrimaryType.Valid && oldSmtp.AppMail.PrimaryType.String == *smtpType.ToString() {
+		oldSmtp.AppMail.PrimaryType = sql.NullString{String: "", Valid: false}
 	}
 
-	if result := database.Pg.Save(&models.AppMail{
-		AppName:  oldSmtp.AppName,
-		MailName: oldSmtp.MailName,
-		MailType: smtpType.ToString(),
-		Primary:  req.Primary,
-	}); result.Error != nil {
-		return result.Error
+	if result := database.Pg.Save(oldSmtp); result.Error != nil {
+		return nil, result.Error
 	}
 
-	if isInCache, err := IsSmtpInCache(oldSmtp.AppName, oldSmtp.MailName); err != nil {
-		return err
+	if result := database.Pg.Save(oldSmtp.AppMail); result.Error != nil {
+		return nil, result.Error
+	}
+
+	if isInCache, err := IsSmtpInCache(oldSmtp.ID); err != nil {
+		return nil, err
 	} else if isInCache {
-		if err := SetSmtpToCache(smtp); err != nil {
-			return err
+		if err := SetSmtpToCache(oldSmtp); err != nil {
+			return nil, err
 		}
 	}
 
-	return nil
+	return oldSmtp, nil
 }
 
 // DeleteSmtp deletes a existing smtp.
@@ -195,10 +218,10 @@ func DeleteSmtp(smtp *models.Smtp) error {
 		return result.Error
 	}
 
-	if isInCache, err := IsSmtpInCache(smtp.AppName, smtp.MailName); err != nil {
+	if isInCache, err := IsSmtpInCache(smtp.ID); err != nil {
 		return err
 	} else if isInCache {
-		if err := DeleteSmtpFromCache(smtp.AppName, smtp.MailName); err != nil {
+		if err := DeleteSmtpFromCache(smtp.ID); err != nil {
 			return err
 		}
 	}
@@ -206,9 +229,9 @@ func DeleteSmtp(smtp *models.Smtp) error {
 	return nil
 }
 
-// DeleteSmtpFromCache deletes a existing smtp from the cache.
-func DeleteSmtpFromCache(app, mail string) error {
-	key := cacheKey(app, mail)
+// DeleteSmtpFromCache deletes an existing smtp from the cache.
+func DeleteSmtpFromCache(id uint) error {
+	key := smtpCacheKey(id)
 
 	result := cache.Valkey.Do(context.Background(), cache.Valkey.B().Del().Key(key).Build())
 	if result.Error() != nil {
@@ -227,7 +250,7 @@ func RestoreSmtp(smtp *models.Smtp) error {
 	return nil
 }
 
-// cacheKey returns the key for the smtp cache.
-func cacheKey(app, mail string) string {
-	return fmt.Sprintf("%s:%s:%s", enums.SMTP, app, mail)
+// smtpCacheKey returns the key for the smtp cache.
+func smtpCacheKey(id uint) string {
+	return fmt.Sprintf("%s:%d", enums.SMTP, id)
 }

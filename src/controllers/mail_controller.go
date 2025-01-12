@@ -5,6 +5,7 @@ import (
 	"api-mail/main/src/enums"
 	"api-mail/main/src/errors"
 	"api-mail/main/src/services"
+	"database/sql"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
@@ -34,17 +35,15 @@ func SendMail(c *fiber.Ctx) error {
 	}
 
 	// Check if mail exists.
-	if sendMail.Mail != "" {
-		if available, err := services.IsMailAvailable(sendMail.Mail); err != nil {
-			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-		} else if !available {
-			return errorutil.Response(c, fiber.StatusBadRequest, errors.MailExists, "MailName does not exist.")
-		}
+	if available, err := services.IsMailAvailable(sendMail.Mail); err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	} else if !available {
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.MailExists, "MailName does not exist.")
 	}
 
 	// Check if type exists.
-	if sendMail.Type != "" {
-		if available, err := services.IsMailTypeAvailable(sendMail.Type); err != nil {
+	if sendMail.Type != nil {
+		if available, err := services.IsPrimaryTypeAvailable(*sendMail.Type); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		} else if !available {
 			return errorutil.Response(c, fiber.StatusBadRequest, errors.MailTypeExists, "MailType does not exist.")
@@ -52,26 +51,62 @@ func SendMail(c *fiber.Ctx) error {
 	}
 
 	// Get app mail.
-	appMail, err := services.GetAppMail(sendMail.App, sendMail.Mail, sendMail.Type)
+	appMail, err := services.GetAppMail(sendMail.App, sendMail.Mail)
 	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	}
+
+	// Check if primary type is set.
+	sendSmtpMail := false
+	sendGmailMail := false
+	sendAzureMail := false
+
+	primaryType := enums.ToAppMailPrimaryType(&appMail.PrimaryType.String)
+	if sendMail.Type != nil {
+		primaryType = enums.ToAppMailPrimaryType(sendMail.Type)
+	}
+	switch *primaryType {
+	case enums.SMTP:
+		sendSmtpMail = true
+	case enums.Gmail:
+		sendGmailMail = true
+	case enums.Azure:
+		sendAzureMail = true
+	default:
+		appMail, err := services.GetAppMail(sendMail.App, sendMail.Mail, true)
+		if err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+		}
+
+		if appMail.Azure != nil {
+			sendAzureMail = true
+		} else if appMail.Gmail != nil {
+			sendGmailMail = true
+		} else {
+			sendSmtpMail = true
+		}
+	}
+
+	if sendAzureMail {
+		azureType := enums.Azure
+		appMail.PrimaryType = sql.NullString{String: *azureType.ToString(), Valid: true}
+	} else if sendGmailMail {
+		gmailType := enums.Gmail
+		appMail.PrimaryType = sql.NullString{String: *gmailType.ToString(), Valid: true}
+	} else {
+		smtpType := enums.SMTP
+		appMail.PrimaryType = sql.NullString{String: *smtpType.ToString(), Valid: true}
+	}
+
+	// Create mail.
+	if err := services.CreateSendMail(&appMail, sendMail); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	// Send mail.
-	mailType, err := enums.ToMailType(appMail.MailType)
-	if err != nil {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.MailTypeExists, "MailType does not exist.")
-	}
-
-	if err := services.CreateSendMail(sendMail); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	}
-
-	switch mailType {
-	case enums.SMTP:
+	if sendSmtpMail {
 		if err := services.SendSmtpMail(
-			sendMail.App,
-			sendMail.Mail,
+			&appMail,
 			sendMail.FromName,
 			sendMail.FromMail,
 			sendMail.To,
@@ -82,10 +117,12 @@ func SendMail(c *fiber.Ctx) error {
 			sendMail.Bccs); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
 		}
-	case enums.Gmail:
+	} else if sendGmailMail {
 		// TODO: implement Gmail mail sending.
-	case enums.Azure:
+	} else if sendAzureMail {
 		// TODO: implement Azure mail sending.
+	} else {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, "PrimaryType not found.")
 	}
 
 	return c.SendStatus(fiber.StatusCreated)

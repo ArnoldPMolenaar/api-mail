@@ -11,7 +11,7 @@ func Migrate(db *gorm.DB) error {
 	err := db.AutoMigrate(
 		models.App{},
 		models.Mail{},
-		models.MailType{},
+		models.AppMailPrimaryType{},
 		models.Smtp{},
 		models.Azure{},
 		models.Gmail{},
@@ -35,7 +35,7 @@ func Migrate(db *gorm.DB) error {
 	// Seed MailType.
 	mailTypes := []string{"Azure", "Gmail", "SMTP"}
 	for _, mailType := range mailTypes {
-		if err := db.FirstOrCreate(&models.MailType{}, models.MailType{Name: mailType}).Error; err != nil {
+		if err := db.FirstOrCreate(&models.AppMailPrimaryType{}, models.AppMailPrimaryType{Name: mailType}).Error; err != nil {
 			return err
 		}
 	}

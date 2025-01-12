@@ -3,7 +3,7 @@ package requests
 type SendMail struct {
 	App      string   `json:"app" validate:"required"`
 	Mail     string   `json:"mail"`
-	Type     string   `json:"type"`
+	Type     *string  `json:"type"`
 	FromName string   `json:"fromName"`
 	FromMail string   `json:"fromMail" validate:"email"`
 	To       string   `json:"to" validate:"required,email"`

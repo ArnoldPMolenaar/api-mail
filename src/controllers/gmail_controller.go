@@ -10,39 +10,39 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetSmtp func for getting an SMTP record.
-func GetSmtp(c *fiber.Ctx) error {
+// GetGmail func for getting a Gmail record.
+func GetGmail(c *fiber.Ctx) error {
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, err.Error())
 	}
 
-	// Find the SMTP.
-	smtp, err := services.GetSmtp(id)
+	// Find the Gmail.
+	gmail, err := services.GetGmail(id)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if smtp.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errors.SmtpExists, "Smtp does not exist.")
+	} else if gmail.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
 	}
 
-	response := responses.Smtp{}
-	response.SetSmtp(smtp)
+	response := responses.Gmail{}
+	response.SetGmail(gmail)
 
 	return c.JSON(response)
 }
 
-// CreateSmtp func for creating a new SMTP.
-func CreateSmtp(c *fiber.Ctx) error {
-	// Create a new smtp struct for the request.
-	req := &requests.CreateSmtp{}
+// CreateGmail func for creating a new Gmail.
+func CreateGmail(c *fiber.Ctx) error {
+	// Create a new gmail struct for the request.
+	req := &requests.CreateGmail{}
 
 	// Check, if received JSON data is parsed.
 	if err := c.BodyParser(req); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
-	// Validate smtp fields.
+	// Validate gmail fields.
 	validate := utils.NewValidator()
 	if err := validate.Struct(req); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
@@ -55,34 +55,33 @@ func CreateSmtp(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
-	// Check if smtp exists.
-	if available, err := services.IsSmtpAvailable(req.App, req.Mail); err != nil {
+	// Check if gmail exists.
+	if available, err := services.IsGmailAvailable(req.App, req.Mail); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if available {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.SmtpAvailable, "Smtp mail already exist.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.GmailAvailable, "Gmail mail already exist.")
 	}
 
-	// Create smtp.
-	smtp, err := services.CreateSmtp(req)
+	// TODO: Add a function that should return a URL that the user can use to request the token.
+
+	// Create gmail.
+	gmail, err := services.CreateGmail(req)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
-	// Return the smtp.
-	if smtp != nil {
-		response := responses.Smtp{}
-		response.SetSmtp(smtp)
+	// Return the url to request the token.
+	// TODO: this should be removed, replaced by URL.
+	response := responses.Gmail{}
+	response.SetGmail(gmail)
 
-		return c.JSON(response)
-	} else {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, "Failed to create smtp.")
-	}
+	return c.JSON(response)
 }
 
-// UpdateSmtp func for updating a SMTP record.
-func UpdateSmtp(c *fiber.Ctx) error {
-	// Create a new smtp struct for the request.
-	req := &requests.UpdateSmtp{}
+// UpdateGmail func for updating a Gmail record.
+func UpdateGmail(c *fiber.Ctx) error {
+	// Create a new gmail struct for the request.
+	req := &requests.UpdateGmail{}
 
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
@@ -95,86 +94,88 @@ func UpdateSmtp(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
-	// Validate smtp fields.
+	// Validate gmail fields.
 	validate := utils.NewValidator()
 	if err := validate.Struct(req); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
-	// Find the SMTP.
-	smtp, err := services.GetSmtp(id)
+	// Find the Gmail.
+	gmail, err := services.GetGmail(id)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if smtp.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errors.SmtpExists, "Smtp does not exist.")
+	} else if gmail.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
 	}
 
-	// Check if the smtp data has been modified since it was last fetched.
-	if req.UpdatedAt.Unix() < smtp.UpdatedAt.Unix() {
+	// Check if the gmail data has been modified since it was last fetched.
+	if req.UpdatedAt.Unix() < gmail.UpdatedAt.Unix() {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.OutOfSync, "Data is out of sync.")
 	}
 
-	// Update smtp.
-	smtp, err = services.UpdateSmtp(smtp, req)
+	// TODO: Add a function that should return a URL that the user can use to request the token.
+
+	// Update gmail.
+	gmail, err = services.UpdateGmail(gmail, req)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
-	// Return the smtp.
-	if smtp != nil {
-		response := responses.Smtp{}
-		response.SetSmtp(smtp)
+	// Return the link.
+	// TODO: this should be removed.
+	response := responses.Gmail{}
+	response.SetGmail(gmail)
 
-		return c.JSON(response)
-	} else {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, "Failed to update smtp.")
-	}
+	return c.JSON(response)
 }
 
-// DeleteSmtp func for deleting a SMTP record.
-func DeleteSmtp(c *fiber.Ctx) error {
+// DeleteGmail func for deleting a Gmail record.
+func DeleteGmail(c *fiber.Ctx) error {
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, err.Error())
 	}
 
-	// Find the SMTP.
-	smtp, err := services.GetSmtp(id)
+	// Find the Gmail.
+	gmail, err := services.GetGmail(id)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if smtp.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errors.SmtpExists, "Smtp does not exist.")
+	} else if gmail.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
 	}
 
-	// Delete the SMTP.
-	if err := services.DeleteSmtp(smtp); err != nil {
+	// Delete the Gmail.
+	if err := services.DeleteGmail(gmail); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// RestoreSmtp func for restoring a deleted SMTP record.
-func RestoreSmtp(c *fiber.Ctx) error {
+// RestoreGmail func for restoring a deleted Gmail record.
+func RestoreGmail(c *fiber.Ctx) error {
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, err.Error())
 	}
 
-	// Find the SMTP.
-	smtp, err := services.GetSmtp(id, true)
+	// Find the Gmail.
+	gmail, err := services.GetGmail(id, true)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if smtp.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errors.SmtpExists, "Smtp does not exist.")
+	} else if gmail.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
 	}
 
-	// Restore the SMTP.
-	if err := services.RestoreSmtp(smtp); err != nil {
+	// TODO: Add a function that should return a URL that the user can use to request the token.
+
+	// Restore the Gmail.
+	if err := services.RestoreGmail(gmail); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
+	// TODO: this should be removed.
 	return c.SendStatus(fiber.StatusNoContent)
 }

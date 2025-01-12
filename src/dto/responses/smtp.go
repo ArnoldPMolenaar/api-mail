@@ -1,12 +1,15 @@
 package responses
 
 import (
+	"api-mail/main/src/enums"
 	"api-mail/main/src/models"
 	"time"
 )
 
 // Smtp struct for the SMTP response.
 type Smtp struct {
+	ID                   uint      `json:"id"`
+	AppMailID            uint      `json:"appMailId"`
 	App                  string    `json:"app"`
 	Mail                 string    `json:"mail"`
 	Username             string    `json:"username"`
@@ -22,8 +25,10 @@ type Smtp struct {
 
 // SetSmtp sets the SMTP response.
 func (response *Smtp) SetSmtp(smtp *models.Smtp) {
-	response.App = smtp.AppName
-	response.Mail = smtp.MailName
+	response.ID = smtp.ID
+	response.AppMailID = smtp.AppMailID
+	response.App = smtp.AppMail.AppName
+	response.Mail = smtp.AppMail.MailName
 	response.Username = smtp.Username
 	response.Host = smtp.Host
 	response.Port = smtp.Port
@@ -33,7 +38,8 @@ func (response *Smtp) SetSmtp(smtp *models.Smtp) {
 	response.CreatedAt = smtp.CreatedAt
 	response.UpdatedAt = smtp.UpdatedAt
 
-	if appMail := smtp.GetAppMail(); appMail != nil {
-		response.Primary = appMail.Primary
+	smtpType := enums.SMTP
+	if smtp.AppMail.PrimaryType.Valid && smtp.AppMail.PrimaryType.String == *smtpType.ToString() {
+		response.Primary = true
 	}
 }

@@ -15,9 +15,17 @@ func PrivateRoutes(a *fiber.App) {
 	route.Post("/mail/send", controllers.SendMail)
 
 	// Register CRUD routes for /v1/smtp.
+	// TODO: Add paginate combined for all mails.
 	route.Post("/smtps", controllers.CreateSmtp)
-	route.Get("/smtps/:app/:mail", controllers.GetSmtp)
-	route.Put("/smtps/:app/:mail", controllers.UpdateSmtp)
-	route.Delete("/smtps/:app/:mail", controllers.DeleteSmtp)
-	route.Put("/smtps/:app/:mail/restore", controllers.RestoreSmtp)
+	route.Get("/smtps/:id", controllers.GetSmtp)
+	route.Put("/smtps/:id", controllers.UpdateSmtp)
+	route.Delete("/smtps/:id", controllers.DeleteSmtp)
+	route.Put("/smtps/:id/restore", controllers.RestoreSmtp)
+
+	// Register CRUD routes for /v1/gmail.
+	route.Post("/gmails", controllers.CreateGmail)
+	route.Get("/gmails/:id", controllers.GetGmail)
+	route.Put("/gmails/:id", controllers.UpdateGmail)
+	route.Delete("/gmails/:id", controllers.DeleteGmail)
+	route.Put("/gmails/:id/restore", controllers.RestoreGmail)
 }
