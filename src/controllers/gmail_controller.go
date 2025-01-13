@@ -5,10 +5,50 @@ import (
 	"api-mail/main/src/dto/responses"
 	"api-mail/main/src/errors"
 	"api-mail/main/src/services"
+	"context"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/oauth2"
+	"strconv"
 )
+
+// Oauth2GmailCallback func for handling the Gmail OAuth2 callback.
+func Oauth2GmailCallback(c *fiber.Ctx) error {
+	code := c.Query("code")
+	state := c.Query("state")
+
+	gmailID, err := utils.StringToUint(state)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, err.Error())
+	}
+
+	// Get gmail.
+	gmail, err := services.GetGmailByID(gmailID)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	}
+
+	// Create OAuth2 config
+	oauthConfig := services.CreateOauthConfig(gmail.ClientID, gmail.Secret)
+
+	// Exchange code for token
+	token, err := oauthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errors.OauthExchange, err.Error())
+	}
+
+	// Save the token into the database
+	gmail, err = services.UpdateGmailToken(gmail, token)
+	if err != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	}
+
+	response := responses.GmailCallback{}
+	response.SetGmailCallback(gmail)
+
+	return c.JSON(response)
+}
 
 // GetGmail func for getting a Gmail record.
 func GetGmail(c *fiber.Ctx) error {
@@ -62,18 +102,18 @@ func CreateGmail(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.GmailAvailable, "Gmail mail already exist.")
 	}
 
-	// TODO: Add a function that should return a URL that the user can use to request the token.
-
 	// Create gmail.
 	gmail, err := services.CreateGmail(req)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
+	oauthConfig := services.CreateOauthConfig(req.ClientID, req.Secret)
+	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(gmail.ID)), oauth2.AccessTypeOffline)
+
 	// Return the url to request the token.
-	// TODO: this should be removed, replaced by URL.
 	response := responses.Gmail{}
-	response.SetGmail(gmail)
+	response.SetGmail(gmail, authCodeURL)
 
 	return c.JSON(response)
 }
@@ -113,18 +153,18 @@ func UpdateGmail(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.OutOfSync, "Data is out of sync.")
 	}
 
-	// TODO: Add a function that should return a URL that the user can use to request the token.
-
 	// Update gmail.
 	gmail, err = services.UpdateGmail(gmail, req)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
-	// Return the link.
-	// TODO: this should be removed.
+	oauthConfig := services.CreateOauthConfig(req.ClientID, req.Secret)
+	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(gmail.ID)), oauth2.AccessTypeOffline)
+
+	// Return the url to request the token.
 	response := responses.Gmail{}
-	response.SetGmail(gmail)
+	response.SetGmail(gmail, authCodeURL)
 
 	return c.JSON(response)
 }
@@ -169,13 +209,17 @@ func RestoreGmail(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
 	}
 
-	// TODO: Add a function that should return a URL that the user can use to request the token.
-
 	// Restore the Gmail.
 	if err := services.RestoreGmail(gmail); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
-	// TODO: this should be removed.
-	return c.SendStatus(fiber.StatusNoContent)
+	oauthConfig := services.CreateOauthConfig(gmail.ClientID, gmail.Secret)
+	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(gmail.ID)), oauth2.AccessTypeOffline)
+
+	// Return the url to request the token.
+	response := responses.Gmail{}
+	response.SetGmail(gmail, authCodeURL)
+
+	return c.JSON(response)
 }

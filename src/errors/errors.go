@@ -10,5 +10,6 @@ const (
 	GmailAvailable = "gmailAvailable"
 	GmailExists    = "gmailExists"
 	SendMail       = "sendMail"
+	OauthExchange  = "oauthExchange"
 	// Add more error codes as needed.
 )

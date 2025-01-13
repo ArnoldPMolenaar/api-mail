@@ -35,6 +35,7 @@ require (
 	github.com/xhit/go-simple-mail/v2 v2.16.0 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
+	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.16.0 // indirect

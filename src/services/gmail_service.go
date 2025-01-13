@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/valkey-io/valkey-go"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/endpoints"
 	"os"
 	"time"
 )
@@ -60,6 +62,17 @@ func GetGmail(id uint, unscoped ...bool) (*models.Gmail, error) {
 	return gmail, nil
 }
 
+// GetGmailByID gets the gmail by ID.
+func GetGmailByID(ID uint) (*models.Gmail, error) {
+	gmail := &models.Gmail{}
+
+	if result := database.Pg.Find(gmail, "id = ?", ID); result.Error != nil {
+		return nil, result.Error
+	}
+
+	return gmail, nil
+}
+
 // GetGmailFromCache gets the gmail from the cache.
 func GetGmailFromCache(id uint) (*models.Gmail, error) {
 	key := gmailCacheKey(id)
@@ -80,6 +93,22 @@ func GetGmailFromCache(id uint) (*models.Gmail, error) {
 	}
 
 	return &gmail, nil
+}
+
+// CreateOauthConfig creates a new oauth config.
+func CreateOauthConfig(clientID, secret string) *oauth2.Config {
+	redirectUrl := fmt.Sprintf(
+		"%sv1/oauth2/gmails/callback",
+		os.Getenv("DOMAIN_NAME"),
+	)
+
+	return &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: secret,
+		Endpoint:     endpoints.Google,
+		RedirectURL:  redirectUrl,
+		Scopes:       []string{"https://www.googleapis.com/auth/gmail.send", "openid", "profile", "email"},
+	}
 }
 
 // CreateGmail creates a new gmail.
@@ -123,8 +152,6 @@ func CreateGmail(req *requests.CreateGmail) (*models.Gmail, error) {
 		return nil, result.Error
 	}
 
-	// TODO: Create token.
-
 	return gmail, nil
 }
 
@@ -151,6 +178,23 @@ func SetGmailToCache(gmail *models.Gmail) error {
 	return nil
 }
 
+// UpdateGmailToken updates an existing gmail token.
+func UpdateGmailToken(gmail *models.Gmail, token *oauth2.Token) (*models.Gmail, error) {
+	// Save the token into the Gmail record.
+	gmail.AccessToken = &token.AccessToken
+	gmail.RefreshToken = &token.RefreshToken
+	gmail.Expiry = &token.Expiry
+	gmail.ExpiresIn = &token.ExpiresIn
+	gmail.TokenType = &token.TokenType
+
+	// Update the Gmail record in the database.
+	if result := database.Pg.Save(gmail); result.Error != nil {
+		return nil, result.Error
+	}
+
+	return gmail, nil
+}
+
 // UpdateGmail updates a existing gmail.
 func UpdateGmail(oldGmail *models.Gmail, req *requests.UpdateGmail) (*models.Gmail, error) {
 	gmailType := enums.Gmail
@@ -171,8 +215,6 @@ func UpdateGmail(oldGmail *models.Gmail, req *requests.UpdateGmail) (*models.Gma
 	if result := database.Pg.Save(oldGmail.AppMail); result.Error != nil {
 		return nil, result.Error
 	}
-	
-	// TODO: First update token.
 
 	if isInCache, err := IsGmailInCache(oldGmail.ID); err != nil {
 		return nil, err
@@ -219,8 +261,6 @@ func RestoreGmail(gmail *models.Gmail) error {
 	if result := database.Pg.Model(&gmail).Unscoped().Update("deleted_at", nil); result.Error != nil {
 		return result.Error
 	}
-
-	// TODO: Update token in the end.
 
 	return nil
 }

@@ -8,20 +8,21 @@ import (
 
 // Gmail struct for the Gmail response.
 type Gmail struct {
-	ID        uint      `json:"id"`
-	AppMailID uint      `json:"appMailId"`
-	App       string    `json:"app"`
-	Mail      string    `json:"mail"`
-	ClientID  string    `json:"clientId"`
-	Secret    string    `json:"secret"`
-	User      string    `json:"user"`
-	Primary   bool      `json:"primary"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID          uint      `json:"id"`
+	AppMailID   uint      `json:"appMailId"`
+	App         string    `json:"app"`
+	Mail        string    `json:"mail"`
+	ClientID    string    `json:"clientId"`
+	Secret      string    `json:"secret"`
+	User        string    `json:"user"`
+	Primary     bool      `json:"primary"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+	AuthCodeURL *string   `json:"authCodeUrl"`
 }
 
 // SetGmail sets the Gmail response.
-func (response *Gmail) SetGmail(gmail *models.Gmail) {
+func (response *Gmail) SetGmail(gmail *models.Gmail, authCodeURL ...string) {
 	response.ID = gmail.ID
 	response.AppMailID = gmail.AppMailID
 	response.App = gmail.AppMail.AppName
@@ -35,5 +36,9 @@ func (response *Gmail) SetGmail(gmail *models.Gmail) {
 	gmailType := enums.Gmail
 	if gmail.AppMail.PrimaryType.Valid && gmail.AppMail.PrimaryType.String == *gmailType.ToString() {
 		response.Primary = true
+	}
+
+	if len(authCodeURL) > 0 {
+		response.AuthCodeURL = &authCodeURL[0]
 	}
 }
