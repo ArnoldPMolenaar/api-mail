@@ -5,10 +5,16 @@ import (
 	"api-mail/main/src/dto/requests"
 	"api-mail/main/src/enums"
 	"api-mail/main/src/models"
+	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/toorop/go-dkim"
 	mail "github.com/xhit/go-simple-mail/v2"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/option"
+	"strings"
 	"time"
 )
 
@@ -169,6 +175,94 @@ func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body
 	// Send email.
 	if err := email.Send(client); err != nil {
 		return errors.New(fmt.Sprintf("sending email error: %s", err.Error()))
+	}
+
+	return nil
+}
+
+func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, body, mimeType string, ccs []string, bccs []string) error {
+	// Gmail record.
+	var gmailRecord *models.Gmail
+	var err error
+	ctx := context.Background()
+
+	if appMail.Gmail == nil {
+		gmailID, err := GetGmailIDByAppMailID(appMail.ID)
+		if err != nil {
+			return errors.New("gmail ID not found")
+		}
+
+		if isInCache, err := IsGmailInCache(gmailID); err != nil {
+			return err
+		} else if isInCache {
+			if gmailRecord, err = GetGmailFromCache(gmailID); err != nil {
+				return err
+			}
+		} else {
+			if gmailRecord, err = GetGmail(gmailID); err != nil {
+				return err
+			}
+		}
+	} else {
+		gmailRecord = appMail.Gmail
+	}
+
+	if gmailRecord != nil {
+		if err = SetGmailToCache(gmailRecord); err != nil {
+			return err
+		}
+	} else {
+		return errors.New("gmail not found")
+	}
+
+	// Create OAuth2 config.
+	if !gmailRecord.AccessToken.Valid ||
+		!gmailRecord.RefreshToken.Valid ||
+		!gmailRecord.TokenType.Valid ||
+		!gmailRecord.Expiry.Valid ||
+		!gmailRecord.ExpiresIn.Valid {
+		return errors.New("gmail record not authenticated")
+	}
+
+	oauthConfig := CreateOauthConfig(gmailRecord.ClientID, gmailRecord.Secret)
+	client := oauthConfig.Client(ctx, &oauth2.Token{
+		AccessToken:  gmailRecord.AccessToken.String,
+		TokenType:    gmailRecord.TokenType.String,
+		RefreshToken: gmailRecord.RefreshToken.String,
+		Expiry:       gmailRecord.Expiry.Time,
+		ExpiresIn:    gmailRecord.ExpiresIn.Int64,
+	})
+
+	gmailService, err := gmail.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error getting gmail service: %s", err.Error()))
+	}
+
+	// Create the message.
+	header := make(map[string]string)
+	header["From"] = fmt.Sprintf("%s <%s>", fromName, fromMail)
+	header["To"] = to
+	header["Cc"] = strings.Join(ccs, ",")
+	header["Bcc"] = strings.Join(bccs, ",")
+	header["Subject"] = subject
+	header["MIME-Version"] = "1.0"
+	header["Content-Type"] = fmt.Sprintf(`%s; charset="utf-8"`, mimeType)
+	header["Content-Transfer-Encoding"] = "base64"
+
+	var msg string
+	for k, v := range header {
+		msg += fmt.Sprintf("%s: %s\n", k, v)
+	}
+	msg += "\n" + body
+
+	gMsg := gmail.Message{
+		Raw: base64.URLEncoding.EncodeToString([]byte(msg)),
+	}
+
+	// Send the message
+	_, err = gmailService.Users.Messages.Send("me", &gMsg).Do()
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error sending gmail message: %s", err.Error()))
 	}
 
 	return nil

@@ -73,6 +73,19 @@ func GetGmailByID(ID uint) (*models.Gmail, error) {
 	return gmail, nil
 }
 
+// GetGmailIDByAppMailID gets the gmail id by app mail id.
+func GetGmailIDByAppMailID(appMailID uint) (uint, error) {
+	var gmailID uint
+
+	if result := database.Pg.Model(&models.Gmail{}).
+		Where("app_mail_id = ?", appMailID).
+		Pluck("id", &gmailID); result.Error != nil {
+		return 0, result.Error
+	}
+
+	return gmailID, nil
+}
+
 // GetGmailFromCache gets the gmail from the cache.
 func GetGmailFromCache(id uint) (*models.Gmail, error) {
 	key := gmailCacheKey(id)
@@ -181,11 +194,21 @@ func SetGmailToCache(gmail *models.Gmail) error {
 // UpdateGmailToken updates an existing gmail token.
 func UpdateGmailToken(gmail *models.Gmail, token *oauth2.Token) (*models.Gmail, error) {
 	// Save the token into the Gmail record.
-	gmail.AccessToken = &token.AccessToken
-	gmail.RefreshToken = &token.RefreshToken
-	gmail.Expiry = &token.Expiry
-	gmail.ExpiresIn = &token.ExpiresIn
-	gmail.TokenType = &token.TokenType
+	gmail.AccessToken = sql.NullString{Valid: true, String: token.AccessToken}
+	gmail.TokenType = sql.NullString{Valid: true, String: token.TokenType}
+	gmail.Expiry = sql.NullTime{Valid: true, Time: token.Expiry}
+
+	if token.RefreshToken != "" {
+		gmail.RefreshToken = sql.NullString{Valid: true, String: token.RefreshToken}
+	}
+
+	if token.ExpiresIn != 0 {
+		gmail.ExpiresIn = sql.NullInt64{Valid: true, Int64: token.ExpiresIn}
+	} else {
+		if expiresInFloat64, ok := token.Extra("expires_in").(float64); ok {
+			gmail.ExpiresIn = sql.NullInt64{Valid: true, Int64: int64(expiresInFloat64)}
+		}
+	}
 
 	// Update the Gmail record in the database.
 	if result := database.Pg.Save(gmail); result.Error != nil {

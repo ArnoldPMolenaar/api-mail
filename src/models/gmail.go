@@ -1,8 +1,8 @@
 package models
 
 import (
+	"database/sql"
 	"gorm.io/gorm"
-	"time"
 )
 
 type Gmail struct {
@@ -10,11 +10,11 @@ type Gmail struct {
 	AppMailID    uint   `gorm:"not null"`
 	ClientID     string `gorm:"not null"`
 	Secret       string `gorm:"not null"`
-	AccessToken  *string
-	RefreshToken *string
-	TokenType    *string
-	Expiry       *time.Time
-	ExpiresIn    *int64
+	AccessToken  sql.NullString
+	RefreshToken sql.NullString
+	TokenType    sql.NullString
+	Expiry       sql.NullTime
+	ExpiresIn    sql.NullInt64
 	User         string `gorm:"not null"`
 
 	// Relationships.

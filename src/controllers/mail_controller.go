@@ -118,7 +118,18 @@ func SendMail(c *fiber.Ctx) error {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
 		}
 	} else if sendGmailMail {
-		// TODO: implement Gmail mail sending.
+		if err := services.SendGmailMail(
+			&appMail,
+			sendMail.FromName,
+			sendMail.FromMail,
+			sendMail.To,
+			sendMail.Subject,
+			sendMail.Body,
+			sendMail.MimeType,
+			sendMail.Ccs,
+			sendMail.Bccs); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
+		}
 	} else if sendAzureMail {
 		// TODO: implement Azure mail sending.
 	} else {
