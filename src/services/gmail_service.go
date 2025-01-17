@@ -108,8 +108,8 @@ func GetGmailFromCache(id uint) (*models.Gmail, error) {
 	return &gmail, nil
 }
 
-// CreateOauthConfig creates a new oauth config.
-func CreateOauthConfig(clientID, secret string) *oauth2.Config {
+// CreateGmailOauthConfig creates a new oauth config.
+func CreateGmailOauthConfig(clientID, secret string) *oauth2.Config {
 	redirectUrl := fmt.Sprintf(
 		"%sv1/oauth2/gmails/callback",
 		os.Getenv("DOMAIN_NAME"),

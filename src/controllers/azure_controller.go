@@ -13,24 +13,24 @@ import (
 	"strconv"
 )
 
-// Oauth2GmailCallback func for handling the Gmail OAuth2 callback.
-func Oauth2GmailCallback(c *fiber.Ctx) error {
+// Oauth2AzureCallback func for handling the Azure OAuth2 callback.
+func Oauth2AzureCallback(c *fiber.Ctx) error {
 	code := c.Query("code")
 	state := c.Query("state")
 
-	gmailID, err := utils.StringToUint(state)
+	azureID, err := utils.StringToUint(state)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, err.Error())
 	}
 
-	// Get gmail.
-	gmail, err := services.GetGmailByID(gmailID)
+	// Get azure.
+	azure, err := services.GetAzureByID(azureID)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	// Create OAuth2 config
-	oauthConfig := services.CreateGmailOauthConfig(gmail.ClientID, gmail.Secret)
+	oauthConfig := services.CreateAzureOauthConfig(azure.ClientID, azure.TenantID, azure.Secret)
 
 	// Exchange code for token
 	token, err := oauthConfig.Exchange(context.Background(), code)
@@ -39,50 +39,50 @@ func Oauth2GmailCallback(c *fiber.Ctx) error {
 	}
 
 	// Save the token into the database
-	gmail, err = services.UpdateGmailToken(gmail, token)
+	azure, err = services.UpdateAzureToken(azure, token)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
-	response := responses.GmailCallback{}
-	response.SetGmailCallback(gmail)
+	response := responses.AzureCallback{}
+	response.SetAzureCallback(azure)
 
 	return c.JSON(response)
 }
 
-// GetGmail func for getting a Gmail record.
-func GetGmail(c *fiber.Ctx) error {
+// GetAzure func for getting a Azure record.
+func GetAzure(c *fiber.Ctx) error {
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, err.Error())
 	}
 
-	// Find the Gmail.
-	gmail, err := services.GetGmail(id)
+	// Find the Azure.
+	azure, err := services.GetAzure(id)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if gmail.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
+	} else if azure.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.AzureExists, "Azure does not exist.")
 	}
 
-	response := responses.Gmail{}
-	response.SetGmail(gmail)
+	response := responses.Azure{}
+	response.SetAzure(azure)
 
 	return c.JSON(response)
 }
 
-// CreateGmail func for creating a new Gmail.
-func CreateGmail(c *fiber.Ctx) error {
-	// Create a new gmail struct for the request.
-	req := &requests.CreateGmail{}
+// CreateAzure func for creating a new Azure.
+func CreateAzure(c *fiber.Ctx) error {
+	// Create a new azure struct for the request.
+	req := &requests.CreateAzure{}
 
 	// Check, if received JSON data is parsed.
 	if err := c.BodyParser(req); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
-	// Validate gmail fields.
+	// Validate azure fields.
 	validate := utils.NewValidator()
 	if err := validate.Struct(req); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
@@ -95,33 +95,33 @@ func CreateGmail(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errors.AppExists, "AppName does not exist.")
 	}
 
-	// Check if gmail exists.
-	if available, err := services.IsGmailAvailable(req.App, req.Mail); err != nil {
+	// Check if azure exists.
+	if available, err := services.IsAzureAvailable(req.App, req.Mail); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	} else if available {
-		return errorutil.Response(c, fiber.StatusBadRequest, errors.GmailAvailable, "Gmail mail already exist.")
+		return errorutil.Response(c, fiber.StatusBadRequest, errors.AzureAvailable, "Azure mail already exist.")
 	}
 
-	// Create gmail.
-	gmail, err := services.CreateGmail(req)
+	// Create azure.
+	azure, err := services.CreateAzure(req)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
-	oauthConfig := services.CreateGmailOauthConfig(req.ClientID, req.Secret)
-	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(gmail.ID)), oauth2.AccessTypeOffline)
+	oauthConfig := services.CreateAzureOauthConfig(req.ClientID, req.TenantID, req.Secret)
+	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(azure.ID)), oauth2.AccessTypeOffline)
 
 	// Return the url to request the token.
-	response := responses.Gmail{}
-	response.SetGmail(gmail, authCodeURL)
+	response := responses.Azure{}
+	response.SetAzure(azure, authCodeURL)
 
 	return c.JSON(response)
 }
 
-// UpdateGmail func for updating a Gmail record.
-func UpdateGmail(c *fiber.Ctx) error {
-	// Create a new gmail struct for the request.
-	req := &requests.UpdateGmail{}
+// UpdateAzure func for updating a Azure record.
+func UpdateAzure(c *fiber.Ctx) error {
+	// Create a new azure struct for the request.
+	req := &requests.UpdateAzure{}
 
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
@@ -134,92 +134,92 @@ func UpdateGmail(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.BodyParse, err.Error())
 	}
 
-	// Validate gmail fields.
+	// Validate azure fields.
 	validate := utils.NewValidator()
 	if err := validate.Struct(req); err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
-	// Find the Gmail.
-	gmail, err := services.GetGmail(id)
+	// Find the Azure.
+	azure, err := services.GetAzure(id)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if gmail.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
+	} else if azure.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.AzureExists, "Azure does not exist.")
 	}
 
-	// Check if the gmail data has been modified since it was last fetched.
-	if req.UpdatedAt.Unix() < gmail.UpdatedAt.Unix() {
+	// Check if the azure data has been modified since it was last fetched.
+	if req.UpdatedAt.Unix() < azure.UpdatedAt.Unix() {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.OutOfSync, "Data is out of sync.")
 	}
 
-	// Update gmail.
-	gmail, err = services.UpdateGmail(gmail, req)
+	// Update azure.
+	azure, err = services.UpdateAzure(azure, req)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
-	oauthConfig := services.CreateGmailOauthConfig(req.ClientID, req.Secret)
-	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(gmail.ID)), oauth2.AccessTypeOffline)
+	oauthConfig := services.CreateAzureOauthConfig(req.ClientID, req.TenantID, req.Secret)
+	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(azure.ID)), oauth2.AccessTypeOffline)
 
 	// Return the url to request the token.
-	response := responses.Gmail{}
-	response.SetGmail(gmail, authCodeURL)
+	response := responses.Azure{}
+	response.SetAzure(azure, authCodeURL)
 
 	return c.JSON(response)
 }
 
-// DeleteGmail func for deleting a Gmail record.
-func DeleteGmail(c *fiber.Ctx) error {
+// DeleteAzure func for deleting a azure record.
+func DeleteAzure(c *fiber.Ctx) error {
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, err.Error())
 	}
 
-	// Find the Gmail.
-	gmail, err := services.GetGmail(id)
+	// Find the Azure.
+	azure, err := services.GetAzure(id)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if gmail.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
+	} else if azure.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.AzureExists, "Azure does not exist.")
 	}
 
-	// Delete the Gmail.
-	if err := services.DeleteGmail(gmail); err != nil {
+	// Delete the Azure.
+	if err := services.DeleteAzure(azure); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// RestoreGmail func for restoring a deleted Gmail record.
-func RestoreGmail(c *fiber.Ctx) error {
+// RestoreAzure func for restoring a deleted Azure record.
+func RestoreAzure(c *fiber.Ctx) error {
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.InvalidParam, err.Error())
 	}
 
-	// Find the Gmail.
-	gmail, err := services.GetGmail(id, true)
+	// Find the Azure.
+	azure, err := services.GetAzure(id, true)
 	if err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
-	} else if gmail.ID == 0 {
-		return errorutil.Response(c, fiber.StatusNotFound, errors.GmailExists, "Gmail does not exist.")
+	} else if azure.ID == 0 {
+		return errorutil.Response(c, fiber.StatusNotFound, errors.AzureExists, "Azure does not exist.")
 	}
 
-	// Restore the Gmail.
-	if err := services.RestoreGmail(gmail); err != nil {
+	// Restore the Azure.
+	if err := services.RestoreAzure(azure); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 	}
 
-	oauthConfig := services.CreateGmailOauthConfig(gmail.ClientID, gmail.Secret)
-	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(gmail.ID)), oauth2.AccessTypeOffline)
+	oauthConfig := services.CreateAzureOauthConfig(azure.ClientID, azure.TenantID, azure.Secret)
+	authCodeURL := oauthConfig.AuthCodeURL(strconv.Itoa(int(azure.ID)), oauth2.AccessTypeOffline)
 
 	// Return the url to request the token.
-	response := responses.Gmail{}
-	response.SetGmail(gmail, authCodeURL)
+	response := responses.Azure{}
+	response.SetAzure(azure, authCodeURL)
 
 	return c.JSON(response)
 }

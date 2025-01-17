@@ -14,7 +14,7 @@ func PrivateRoutes(a *fiber.App) {
 	// Register route for POST /v1/mail/send.
 	route.Post("/mail/send", middleware.MachineProtected(), controllers.SendMail)
 
-	// Register CRUD routes for /v1/smtp.
+	// Register CRUD routes for /v1/smtps.
 	// TODO: Add paginate combined for all mails.
 	smtps := route.Group("/smtps", middleware.MachineProtected())
 	smtps.Post("/", controllers.CreateSmtp)
@@ -23,7 +23,7 @@ func PrivateRoutes(a *fiber.App) {
 	smtps.Delete("/:id", controllers.DeleteSmtp)
 	smtps.Put("/:id/restore", controllers.RestoreSmtp)
 
-	// Register CRUD routes for /v1/gmail.
+	// Register CRUD routes for /v1/gmails.
 	gmails := route.Group("/gmails", middleware.MachineProtected())
 	gmails.Post("/", controllers.CreateGmail)
 	gmails.Get("/:id", controllers.GetGmail)
@@ -31,7 +31,11 @@ func PrivateRoutes(a *fiber.App) {
 	gmails.Delete("/:id", controllers.DeleteGmail)
 	gmails.Put("/:id/restore", controllers.RestoreGmail)
 
-	// OAuth2 callbacks
-	oauth := route.Group("/oauth2")
-	oauth.Get("/gmails/callback", controllers.Oauth2GmailCallback)
+	// Register CRUD routes for /v1/azures.
+	azures := route.Group("/azures", middleware.MachineProtected())
+	azures.Post("/", controllers.CreateAzure)
+	azures.Get("/:id", controllers.GetAzure)
+	azures.Put("/:id", controllers.UpdateAzure)
+	azures.Delete("/:id", controllers.DeleteAzure)
+	azures.Put("/:id/restore", controllers.RestoreAzure)
 }

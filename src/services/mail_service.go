@@ -45,7 +45,7 @@ func GetAppMail(app, mail string, preload ...bool) (models.AppMail, error) {
 		query = query.Preload("Smtp").Preload("Gmail").Preload("Azure")
 	}
 
-	if result := database.Pg.First(&appMail, "app_name = ? AND mail_name = ?", app, mail); result.Error != nil {
+	if result := database.Pg.Find(&appMail, "app_name = ? AND mail_name = ?", app, mail); result.Error != nil {
 		return appMail, result.Error
 	}
 
@@ -224,7 +224,7 @@ func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, bod
 		return errors.New("gmail record not authenticated")
 	}
 
-	oauthConfig := CreateOauthConfig(gmailRecord.ClientID, gmailRecord.Secret)
+	oauthConfig := CreateGmailOauthConfig(gmailRecord.ClientID, gmailRecord.Secret)
 	client := oauthConfig.Client(ctx, &oauth2.Token{
 		AccessToken:  gmailRecord.AccessToken.String,
 		TokenType:    gmailRecord.TokenType.String,

@@ -11,5 +11,7 @@ const (
 	GmailExists    = "gmailExists"
 	SendMail       = "sendMail"
 	OauthExchange  = "oauthExchange"
+	AzureAvailable = "azureAvailable"
+	AzureExists    = "azureExists"
 	// Add more error codes as needed.
 )
