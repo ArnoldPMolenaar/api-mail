@@ -99,8 +99,10 @@ func SendMail(c *fiber.Ctx) error {
 	}
 
 	// Create mail.
-	if err := services.CreateSendMail(&appMail, sendMail); err != nil {
-		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+	if !sendMail.DisableSave {
+		if err := services.CreateSendMail(&appMail, sendMail); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
+		}
 	}
 
 	// Send mail.
