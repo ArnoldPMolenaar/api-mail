@@ -5,15 +5,20 @@ import (
 	"api-mail/main/src/dto/requests"
 	"api-mail/main/src/enums"
 	"api-mail/main/src/models"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	jsonserialization "github.com/microsoft/kiota-serialization-json-go"
+	graphmodels "github.com/microsoftgraph/msgraph-sdk-go/models"
+	graphusers "github.com/microsoftgraph/msgraph-sdk-go/users"
 	"github.com/toorop/go-dkim"
 	mail "github.com/xhit/go-simple-mail/v2"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
+	"io"
 	"strings"
 	"time"
 )
@@ -263,6 +268,145 @@ func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, bod
 	_, err = gmailService.Users.Messages.Send("me", &gMsg).Do()
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error sending gmail message: %s", err.Error()))
+	}
+
+	return nil
+}
+
+func SendAzureMail(appMail *models.AppMail, to, subject, body, mimeType string, ccs []string, bccs []string) error {
+	// Azure record.
+	var azure *models.Azure
+	var err error
+	ctx := context.Background()
+
+	if appMail.Azure == nil {
+		azureID, err := GetAzureIDByAppMailID(appMail.ID)
+		if err != nil {
+			return errors.New("azure ID not found")
+		}
+
+		if isInCache, err := IsAzureInCache(azureID); err != nil {
+			return err
+		} else if isInCache {
+			if azure, err = GetAzureFromCache(azureID); err != nil {
+				return err
+			}
+		} else {
+			if azure, err = GetAzure(azureID); err != nil {
+				return err
+			}
+		}
+	} else {
+		azure = appMail.Azure
+	}
+
+	if azure != nil {
+		if err = SetAzureToCache(azure); err != nil {
+			return err
+		}
+	} else {
+		return errors.New("azure not found")
+	}
+
+	// Create OAuth2 config.
+	if !azure.AccessToken.Valid ||
+		!azure.RefreshToken.Valid ||
+		!azure.TokenType.Valid ||
+		!azure.Expiry.Valid ||
+		!azure.ExpiresIn.Valid {
+		return errors.New("azure not authenticated")
+	}
+
+	oauthConfig := CreateAzureOauthConfig(azure.ClientID, azure.TenantID, azure.Secret)
+	client := oauthConfig.Client(ctx, &oauth2.Token{
+		AccessToken:  azure.AccessToken.String,
+		TokenType:    azure.TokenType.String,
+		RefreshToken: azure.RefreshToken.String,
+		Expiry:       azure.Expiry.Time,
+		ExpiresIn:    azure.ExpiresIn.Int64,
+	})
+
+	// Create the email.
+	var contentType graphmodels.BodyType
+	switch mimeType {
+	case "text/plain":
+		contentType = graphmodels.TEXT_BODYTYPE
+	case "text/html":
+		contentType = graphmodels.HTML_BODYTYPE
+	default:
+		contentType = graphmodels.TEXT_BODYTYPE
+	}
+
+	requestBody := graphusers.NewItemSendMailPostRequestBody()
+	message := graphmodels.NewMessage()
+	message.SetSubject(&subject)
+	itemBody := graphmodels.NewItemBody()
+	itemBody.SetContentType(&contentType)
+	itemBody.SetContent(&body)
+	message.SetBody(itemBody)
+
+	// To recipients.
+	recipient := graphmodels.NewRecipient()
+	emailAddress := graphmodels.NewEmailAddress()
+	emailAddress.SetAddress(&to)
+	recipient.SetEmailAddress(emailAddress)
+	toRecipients := []graphmodels.Recipientable{
+		recipient,
+	}
+	message.SetToRecipients(toRecipients)
+
+	// Cc recipients.
+	for _, cc := range ccs {
+		recipient := graphmodels.NewRecipient()
+		emailAddress := graphmodels.NewEmailAddress()
+		emailAddress.SetAddress(&cc)
+		recipient.SetEmailAddress(emailAddress)
+		ccRecipients := []graphmodels.Recipientable{
+			recipient,
+		}
+		message.SetCcRecipients(ccRecipients)
+	}
+
+	// Bcc recipients.
+	for _, bcc := range bccs {
+		recipient := graphmodels.NewRecipient()
+		emailAddress := graphmodels.NewEmailAddress()
+		emailAddress.SetAddress(&bcc)
+		recipient.SetEmailAddress(emailAddress)
+		bccRecipients := []graphmodels.Recipientable{
+			recipient,
+		}
+		message.SetBccRecipients(bccRecipients)
+	}
+
+	requestBody.SetMessage(message)
+	saveToSentItems := false
+	requestBody.SetSaveToSentItems(&saveToSentItems)
+
+	writer := jsonserialization.NewJsonSerializationWriter()
+	if err := requestBody.Serialize(writer); err != nil {
+		return err
+	}
+	requestBodyJson, err := writer.GetSerializedContent()
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error serializing request body: %s", err.Error()))
+	}
+	requestBodyJson = append([]byte("{"), append(requestBodyJson, '}')...)
+
+	// Send the mail via microsoft graph
+	resp, err := client.Post("https://graph.microsoft.com/v1.0/me/sendMail", "application/json", bytes.NewBuffer(requestBodyJson))
+	if err != nil {
+		return errors.New(fmt.Sprintf("Error while sending mail: %s", err.Error()))
+	}
+
+	// Expect a 202 or throw an error
+	if resp.StatusCode != 202 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return errors.New(fmt.Sprintf("Error sending mail: %s, Body: %s", resp.Status, string(bodyBytes)))
+	}
+
+	if err = resp.Body.Close(); err != nil {
+		return errors.New(fmt.Sprintf("Error closing response body: %s", err.Error()))
 	}
 
 	return nil

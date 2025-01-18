@@ -131,7 +131,16 @@ func SendMail(c *fiber.Ctx) error {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
 		}
 	} else if sendAzureMail {
-		// TODO: implement Azure mail sending.
+		if err := services.SendAzureMail(
+			&appMail,
+			sendMail.To,
+			sendMail.Subject,
+			sendMail.Body,
+			sendMail.MimeType,
+			sendMail.Ccs,
+			sendMail.Bccs); err != nil {
+			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
+		}
 	} else {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, "PrimaryType not found.")
 	}
