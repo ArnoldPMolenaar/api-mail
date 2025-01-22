@@ -15,8 +15,8 @@ func PrivateRoutes(a *fiber.App) {
 	route.Post("/mail/send", middleware.MachineProtected(), controllers.SendMail)
 
 	// Register CRUD routes for /v1/smtps.
-	// TODO: Add paginate combined for all mails.
 	smtps := route.Group("/smtps", middleware.MachineProtected())
+	smtps.Get("/", controllers.GetSmtps)
 	smtps.Post("/", controllers.CreateSmtp)
 	smtps.Get("/:id", controllers.GetSmtp)
 	smtps.Put("/:id", controllers.UpdateSmtp)
