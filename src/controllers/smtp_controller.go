@@ -23,6 +23,7 @@ func GetSmtps(c *fiber.Ctx) error {
 		"host":                   true,
 		"port":                   true,
 		"created_at":             true,
+		"updated_at":             true,
 		"app_mails.primary_type": true,
 	}
 
@@ -42,7 +43,7 @@ func GetSmtps(c *fiber.Ctx) error {
 		Limit(limit).
 		Offset(offset).
 		Preload("AppMail").
-		Joins("JOIN app_mails ON app_mails.id = smtps.id").
+		Joins("JOIN \"app_mails\" ON \"app_mails\".\"id\" = \"app_mail_id\"").
 		Find(&smtps)
 	if db.Error != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, db.Error.Error())
@@ -51,11 +52,11 @@ func GetSmtps(c *fiber.Ctx) error {
 	total := int64(0)
 	database.Pg.Scopes(queryFunc).
 		Model(&models.Smtp{}).
-		Joins("JOIN app_mails ON app_mails.id = smtps.id").
+		Joins("JOIN \"app_mails\" ON \"app_mails\".\"id\" = \"app_mail_id\"").
 		Count(&total)
 	pageCount := pagination.Count(int(total), limit)
 
-	paginationModel := pagination.CreatePaginationModel(limit, page, pageCount, int(total), toPagination(smtps))
+	paginationModel := pagination.CreatePaginationModel(limit, page, pageCount, int(total), toSmtpPagination(smtps))
 
 	return c.Status(fiber.StatusOK).JSON(paginationModel)
 }
@@ -229,8 +230,8 @@ func RestoreSmtp(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-// toPagination func for converting SMTPs to SMTP responses.
-func toPagination(smtps []models.Smtp) []responses.Smtp {
+// toSmtpPagination func for converting SMTPs to SMTP responses.
+func toSmtpPagination(smtps []models.Smtp) []responses.Smtp {
 	smtpResponses := make([]responses.Smtp, len(smtps))
 
 	for i, smtp := range smtps {

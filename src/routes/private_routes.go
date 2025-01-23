@@ -25,6 +25,7 @@ func PrivateRoutes(a *fiber.App) {
 
 	// Register CRUD routes for /v1/gmails.
 	gmails := route.Group("/gmails", middleware.MachineProtected())
+	gmails.Get("/", controllers.GetGmails)
 	gmails.Post("/", controllers.CreateGmail)
 	gmails.Get("/:id", controllers.GetGmail)
 	gmails.Put("/:id", controllers.UpdateGmail)

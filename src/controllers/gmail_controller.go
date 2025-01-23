@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"api-mail/main/src/database"
 	"api-mail/main/src/dto/requests"
 	"api-mail/main/src/dto/responses"
 	"api-mail/main/src/errors"
+	"api-mail/main/src/models"
 	"api-mail/main/src/services"
 	"context"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
+	"github.com/ArnoldPMolenaar/api-utils/pagination"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/oauth2"
@@ -48,6 +51,53 @@ func Oauth2GmailCallback(c *fiber.Ctx) error {
 	response.SetGmailCallback(gmail)
 
 	return c.JSON(response)
+}
+
+// GetGmails func for getting all gmail records.
+func GetGmails(c *fiber.Ctx) error {
+	gmails := make([]models.Gmail, 0)
+	values := c.Request().URI().QueryArgs()
+	allowedColumns := map[string]bool{
+		"client_id":              true,
+		"user":                   true,
+		"created_at":             true,
+		"updated_at":             true,
+		"app_mails.primary_type": true,
+	}
+
+	queryFunc := pagination.Query(values, allowedColumns)
+	sortFunc := pagination.Sort(values, allowedColumns)
+	page := c.QueryInt("page", 1)
+	if page < 1 {
+		page = 1
+	}
+	limit := c.QueryInt("limit", 10)
+	if limit < 1 {
+		limit = 10
+	}
+	offset := pagination.Offset(page, limit)
+
+	db := database.Pg.Scopes(queryFunc, sortFunc).
+		Limit(limit).
+		Offset(offset).
+		Select("gmails.id", "client_id", "user", "created_at", "updated_at").
+		Preload("AppMail").
+		Joins("JOIN \"app_mails\" ON \"app_mails\".\"id\" = \"app_mail_id\"").
+		Find(&gmails)
+	if db.Error != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, db.Error.Error())
+	}
+
+	total := int64(0)
+	database.Pg.Scopes(queryFunc).
+		Model(&models.Gmail{}).
+		Joins("JOIN \"app_mails\" ON \"app_mails\".\"id\" = \"app_mail_id\"").
+		Count(&total)
+	pageCount := pagination.Count(int(total), limit)
+
+	paginationModel := pagination.CreatePaginationModel(limit, page, pageCount, int(total), toGmailPagination(gmails))
+
+	return c.Status(fiber.StatusOK).JSON(paginationModel)
 }
 
 // GetGmail func for getting a Gmail record.
@@ -222,4 +272,17 @@ func RestoreGmail(c *fiber.Ctx) error {
 	response.SetGmail(gmail, authCodeURL)
 
 	return c.JSON(response)
+}
+
+// toGmailPagination func for converting Gmails to Gmail responses.
+func toGmailPagination(gmails []models.Gmail) []responses.GmailPagination {
+	gmailResponses := make([]responses.GmailPagination, len(gmails))
+
+	for i, gmail := range gmails {
+		response := responses.GmailPagination{}
+		response.SetGmailPagination(&gmail)
+		gmailResponses[i] = response
+	}
+
+	return gmailResponses
 }
