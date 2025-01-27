@@ -34,6 +34,7 @@ func PrivateRoutes(a *fiber.App) {
 
 	// Register CRUD routes for /v1/azures.
 	azures := route.Group("/azures", middleware.MachineProtected())
+	azures.Get("/", controllers.GetAzures)
 	azures.Post("/", controllers.CreateAzure)
 	azures.Get("/:id", controllers.GetAzure)
 	azures.Put("/:id", controllers.UpdateAzure)

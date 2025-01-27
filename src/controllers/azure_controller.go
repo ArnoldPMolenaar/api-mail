@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"api-mail/main/src/database"
 	"api-mail/main/src/dto/requests"
 	"api-mail/main/src/dto/responses"
 	"api-mail/main/src/errors"
+	"api-mail/main/src/models"
 	"api-mail/main/src/services"
 	"context"
 	errorutil "github.com/ArnoldPMolenaar/api-utils/errors"
+	"github.com/ArnoldPMolenaar/api-utils/pagination"
 	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/oauth2"
@@ -50,7 +53,55 @@ func Oauth2AzureCallback(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
-// GetAzure func for getting a Azure record.
+// GetAzures func for getting all azure records.
+func GetAzures(c *fiber.Ctx) error {
+	azures := make([]models.Azure, 0)
+	values := c.Request().URI().QueryArgs()
+	allowedColumns := map[string]bool{
+		"client_id":              true,
+		"tenant_id":              true,
+		"user":                   true,
+		"created_at":             true,
+		"updated_at":             true,
+		"app_mails.primary_type": true,
+	}
+
+	queryFunc := pagination.Query(values, allowedColumns)
+	sortFunc := pagination.Sort(values, allowedColumns)
+	page := c.QueryInt("page", 1)
+	if page < 1 {
+		page = 1
+	}
+	limit := c.QueryInt("limit", 10)
+	if limit < 1 {
+		limit = 10
+	}
+	offset := pagination.Offset(page, limit)
+
+	db := database.Pg.Scopes(queryFunc, sortFunc).
+		Limit(limit).
+		Offset(offset).
+		Select("azures.id", "client_id", "tenant_id", "user", "created_at", "updated_at").
+		Preload("AppMail").
+		Joins("JOIN \"app_mails\" ON \"app_mails\".\"id\" = \"app_mail_id\"").
+		Find(&azures)
+	if db.Error != nil {
+		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, db.Error.Error())
+	}
+
+	total := int64(0)
+	database.Pg.Scopes(queryFunc).
+		Model(&models.Azure{}).
+		Joins("JOIN \"app_mails\" ON \"app_mails\".\"id\" = \"app_mail_id\"").
+		Count(&total)
+	pageCount := pagination.Count(int(total), limit)
+
+	paginationModel := pagination.CreatePaginationModel(limit, page, pageCount, int(total), toAzurePagination(azures))
+
+	return c.Status(fiber.StatusOK).JSON(paginationModel)
+}
+
+// GetAzure func for getting an Azure record.
 func GetAzure(c *fiber.Ctx) error {
 	// Get the ID from the URL.
 	id, err := utils.StringToUint(c.Params("id"))
@@ -222,4 +273,17 @@ func RestoreAzure(c *fiber.Ctx) error {
 	response.SetAzure(azure, authCodeURL)
 
 	return c.JSON(response)
+}
+
+// toAzurePagination func for converting Azures to Azure responses.
+func toAzurePagination(azures []models.Azure) []responses.AzurePagination {
+	azureResponses := make([]responses.AzurePagination, len(azures))
+
+	for i, azure := range azures {
+		response := responses.AzurePagination{}
+		response.SetAzurePagination(&azure)
+		azureResponses[i] = response
+	}
+
+	return azureResponses
 }
