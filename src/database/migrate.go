@@ -19,7 +19,8 @@ func Migrate(db *gorm.DB) error {
 		models.DkimCanonicalization{},
 		models.SendMail{},
 		models.SendMailCc{},
-		models.SendMailBcc{})
+		models.SendMailBcc{},
+		models.SendMailAttachment{})
 	if err != nil {
 		return err
 	}

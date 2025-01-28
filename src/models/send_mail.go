@@ -17,8 +17,9 @@ type SendMail struct {
 	CreatedAt   time.Time `gorm:"not null"`
 
 	// Relationships.
-	AppMail AppMail            `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:AppMailID;references:ID"`
-	Type    AppMailPrimaryType `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:PrimaryType;references:Name"`
-	Ccs     []SendMailCc       `gorm:"foreignKey:SendMailID"`
-	Bccs    []SendMailBcc      `gorm:"foreignKey:SendMailID"`
+	AppMail     AppMail              `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:AppMailID;references:ID"`
+	Type        AppMailPrimaryType   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;foreignKey:PrimaryType;references:Name"`
+	Ccs         []SendMailCc         `gorm:"foreignKey:SendMailID"`
+	Bccs        []SendMailBcc        `gorm:"foreignKey:SendMailID"`
+	Attachments []SendMailAttachment `gorm:"foreignKey:SendMailID"`
 }

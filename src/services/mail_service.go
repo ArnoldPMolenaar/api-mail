@@ -432,6 +432,7 @@ func CreateSendMail(appMail *models.AppMail, req *requests.SendMail) error {
 		MimeType:    req.MimeType,
 		Ccs:         make([]models.SendMailCc, 0),
 		Bccs:        make([]models.SendMailBcc, 0),
+		Attachments: make([]models.SendMailAttachment, 0),
 	}
 
 	for _, cc := range req.Ccs {
@@ -440,6 +441,15 @@ func CreateSendMail(appMail *models.AppMail, req *requests.SendMail) error {
 
 	for _, bcc := range req.Bccs {
 		sendMail.Bccs = append(sendMail.Bccs, models.SendMailBcc{Bcc: bcc})
+	}
+
+	for _, attachment := range req.Attachments {
+		sendMail.Attachments = append(sendMail.Attachments, models.SendMailAttachment{
+			FileName: attachment.FileName,
+			FileType: attachment.FileType,
+			FileSize: attachment.FileSize,
+			FileData: attachment.FileData,
+		})
 	}
 
 	if result := database.Pg.Create(sendMail); result.Error != nil {

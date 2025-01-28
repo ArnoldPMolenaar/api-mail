@@ -27,6 +27,19 @@ func SendMail(c *fiber.Ctx) error {
 		return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, utils.ValidatorErrors(err))
 	}
 
+	// Validate each attachment.
+	for _, attachment := range sendMail.Attachments {
+		// Validate FileType.
+		if !isValidMimeType(attachment.FileType) {
+			return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, "Invalid file type")
+		}
+
+		// Validate FileData.
+		if len(attachment.FileData) == 0 {
+			return errorutil.Response(c, fiber.StatusBadRequest, errorutil.Validator, "File data is empty")
+		}
+	}
+
 	// Check if app exists.
 	if available, err := services.IsAppAvailable(sendMail.App); err != nil {
 		return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
@@ -148,4 +161,28 @@ func SendMail(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusCreated)
+}
+
+// isValidMimeType checks if the provided MIME type is valid.
+func isValidMimeType(mimeType string) bool {
+	// Add your valid MIME types here.
+	validMimeTypes := map[string]bool{
+		"application/pdf":    true,
+		"image/jpeg":         true,
+		"image/png":          true,
+		"text/plain":         true,
+		"text/html":          true,
+		"application/msword": true, // .doc
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true, // .docx
+		"application/vnd.ms-excel": true, // .xls
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":         true, // .xlsx
+		"application/vnd.ms-powerpoint":                                             true, // .ppt
+		"application/vnd.openxmlformats-officedocument.presentationml.presentation": true, // .pptx
+		"application/zip":              true,
+		"application/x-rar-compressed": true,
+		"application/x-7z-compressed":  true,
+		"application/x-tar":            true,
+	}
+
+	return validMimeTypes[mimeType]
 }
