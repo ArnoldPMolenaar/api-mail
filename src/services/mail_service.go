@@ -297,7 +297,7 @@ func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, bod
 	return nil
 }
 
-func SendAzureMail(appMail *models.AppMail, to, subject, body, mimeType string, ccs []string, bccs []string) error {
+func SendAzureMail(appMail *models.AppMail, to, subject, body, mimeType string, ccs, bccs []string, attachments []requests.SendMailAttachment) error {
 	// Azure record.
 	var azure *models.Azure
 	var err error
@@ -401,6 +401,19 @@ func SendAzureMail(appMail *models.AppMail, to, subject, body, mimeType string, 
 			recipient,
 		}
 		message.SetBccRecipients(bccRecipients)
+	}
+
+	// Attachments.
+	attaches := make([]graphmodels.Attachmentable, 0)
+	for _, attachment := range attachments {
+		attach := graphmodels.NewFileAttachment()
+		attach.SetName(&attachment.FileName)
+		attach.SetContentType(&attachment.FileType)
+		attach.SetContentBytes(attachment.FileData)
+		attaches = append(attaches, attach)
+	}
+	if len(attaches) > 0 {
+		message.SetAttachments(attaches)
 	}
 
 	requestBody.SetMessage(message)
