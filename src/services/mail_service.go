@@ -58,7 +58,7 @@ func GetAppMail(app, mail string, preload ...bool) (models.AppMail, error) {
 }
 
 // SendSmtpMail sends an email using SMTP.
-func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body, mimeType string, ccs []string, bccs []string) error {
+func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body, mimeType string, ccs []string, bccs []string, attachments []requests.SendMailAttachment) error {
 	// SMTP record.
 	var smtp *models.Smtp
 	var err error
@@ -149,6 +149,17 @@ func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body
 
 	if len(bccs) > 0 {
 		email.AddBcc(bccs...)
+	}
+
+	if len(attachments) > 0 {
+		for _, attachment := range attachments {
+			email.Attach(&mail.File{
+				Name:     attachment.FileName,
+				MimeType: attachment.FileType,
+				Data:     attachment.FileData,
+				Inline:   false,
+			})
+		}
 	}
 
 	// Dkim.

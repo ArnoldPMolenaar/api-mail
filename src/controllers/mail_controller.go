@@ -129,7 +129,8 @@ func SendMail(c *fiber.Ctx) error {
 			sendMail.Body,
 			sendMail.MimeType,
 			sendMail.Ccs,
-			sendMail.Bccs); err != nil {
+			sendMail.Bccs,
+			sendMail.Attachments); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
 		}
 	} else if sendGmailMail {
