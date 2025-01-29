@@ -58,7 +58,7 @@ func GetAppMail(app, mail string, preload ...bool) (models.AppMail, error) {
 }
 
 // SendSmtpMail sends an email using SMTP.
-func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body, mimeType string, ccs []string, bccs []string, attachments []requests.SendMailAttachment) error {
+func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body, mimeType string, ccs, bccs []string, attachments []requests.SendMailAttachment) error {
 	// SMTP record.
 	var smtp *models.Smtp
 	var err error
@@ -196,7 +196,7 @@ func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body
 	return nil
 }
 
-func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, body, mimeType string, ccs []string, bccs []string) error {
+func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, body, mimeType string, ccs, bccs []string, attachments []requests.SendMailAttachment) error {
 	// Gmail record.
 	var gmailRecord *models.Gmail
 	var err error
@@ -262,14 +262,27 @@ func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, bod
 	header["Bcc"] = strings.Join(bccs, ",")
 	header["Subject"] = subject
 	header["MIME-Version"] = "1.0"
-	header["Content-Type"] = fmt.Sprintf(`%s; charset="utf-8"`, mimeType)
-	header["Content-Transfer-Encoding"] = "base64"
+	header["Content-Type"] = "multipart/mixed; boundary=\"boundary\""
 
 	var msg string
 	for k, v := range header {
 		msg += fmt.Sprintf("%s: %s\n", k, v)
 	}
-	msg += "\n" + body
+	msg += "\n--boundary\n"
+	msg += fmt.Sprintf("Content-Type: %s; charset=\"utf-8\"\n", mimeType)
+	msg += "Content-Transfer-Encoding: base64\n\n"
+	msg += base64.StdEncoding.EncodeToString([]byte(body)) + "\n"
+
+	if len(attachments) > 0 {
+		for _, attachment := range attachments {
+			msg += "--boundary\n"
+			msg += fmt.Sprintf("Content-Type: %s; name=\"%s\"\n", attachment.FileType, attachment.FileName)
+			msg += "Content-Transfer-Encoding: base64\n"
+			msg += fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\n\n", attachment.FileName)
+			msg += base64.StdEncoding.EncodeToString(attachment.FileData) + "\n"
+		}
+		msg += "--boundary--"
+	}
 
 	gMsg := gmail.Message{
 		Raw: base64.URLEncoding.EncodeToString([]byte(msg)),
