@@ -50,7 +50,7 @@ func GetAppMail(app, mailName string, preload ...bool) (models.AppMail, error) {
 		query = query.Preload("Smtp").Preload("Gmail").Preload("Azure")
 	}
 
-	if result := database.Pg.Find(&appMail, "app_name = ? AND mail_name = ?", app, mailName); result.Error != nil {
+	if result := query.Find(&appMail, "app_name = ? AND mail_name = ?", app, mailName); result.Error != nil {
 		return appMail, result.Error
 	}
 
@@ -124,7 +124,7 @@ func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body
 	// SMTP client.
 	client, err := server.Connect()
 	if err != nil {
-		return errors.New(fmt.Sprintf("smtp client error: %s", err.Error()))
+		return fmt.Errorf("smtp client error: %s", err.Error())
 	}
 
 	// Email.
@@ -186,12 +186,12 @@ func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body
 	}
 
 	if email.Error != nil {
-		return errors.New(fmt.Sprintf("creating email error: %s", email.Error))
+		return fmt.Errorf("creating email error: %s", email.Error)
 	}
 
 	// Send email.
 	if err := email.Send(client); err != nil {
-		return errors.New(fmt.Sprintf("sending email error: %s", err.Error()))
+		return fmt.Errorf("sending email error: %s", err.Error())
 	}
 
 	return nil
@@ -252,7 +252,7 @@ func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, bod
 
 	gmailService, err := gmail.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error getting gmail service: %s", err.Error()))
+		return fmt.Errorf("error getting gmail service: %s", err.Error())
 	}
 
 	// Create the message.
@@ -292,7 +292,7 @@ func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, bod
 	// Send the message
 	_, err = gmailService.Users.Messages.Send("me", &gMsg).Do()
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error sending gmail message: %s", err.Error()))
+		return fmt.Errorf("error sending gmail message: %s", err.Error())
 	}
 
 	return nil
@@ -427,24 +427,24 @@ func SendAzureMail(appMail *models.AppMail, to, subject, body, mimeType string, 
 	}
 	requestBodyJson, err := writer.GetSerializedContent()
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error serializing request body: %s", err.Error()))
+		return fmt.Errorf("error serializing request body: %s", err.Error())
 	}
 	requestBodyJson = append([]byte("{"), append(requestBodyJson, '}')...)
 
 	// Send the mail via microsoft graph
 	resp, err := client.Post("https://graph.microsoft.com/v1.0/me/sendMail", "application/json", bytes.NewBuffer(requestBodyJson))
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error while sending mail: %s", err.Error()))
+		return fmt.Errorf("error while sending mail: %s", err.Error())
 	}
 
 	// Expect a 202 or throw an error
 	if resp.StatusCode != 202 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return errors.New(fmt.Sprintf("Error sending mail: %s, Body: %s", resp.Status, string(bodyBytes)))
+		return fmt.Errorf("error sending mail: %s, Body: %s", resp.Status, string(bodyBytes))
 	}
 
 	if err = resp.Body.Close(); err != nil {
-		return errors.New(fmt.Sprintf("Error closing response body: %s", err.Error()))
+		return fmt.Errorf("error closing response body: %s", err.Error())
 	}
 
 	return nil
