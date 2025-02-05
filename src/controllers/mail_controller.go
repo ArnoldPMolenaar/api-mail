@@ -91,22 +91,24 @@ func SendMail(c *fiber.Ctx) error {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errorutil.QueryError, err.Error())
 		}
 
-		if appMail.Azure != nil {
+		switch {
+		case appMail.Azure != nil:
 			sendAzureMail = true
-		} else if appMail.Gmail != nil {
+		case appMail.Gmail != nil:
 			sendGmailMail = true
-		} else {
+		default:
 			sendSmtpMail = true
 		}
 	}
 
-	if sendAzureMail {
+	switch {
+	case sendAzureMail:
 		azureType := enums.Azure
 		appMail.PrimaryType = sql.NullString{String: *azureType.ToString(), Valid: true}
-	} else if sendGmailMail {
+	case sendGmailMail:
 		gmailType := enums.Gmail
 		appMail.PrimaryType = sql.NullString{String: *gmailType.ToString(), Valid: true}
-	} else {
+	default:
 		smtpType := enums.SMTP
 		appMail.PrimaryType = sql.NullString{String: *smtpType.ToString(), Valid: true}
 	}
@@ -119,7 +121,8 @@ func SendMail(c *fiber.Ctx) error {
 	}
 
 	// Send mail.
-	if sendSmtpMail {
+	switch {
+	case sendSmtpMail:
 		if err := services.SendSmtpMail(
 			&appMail,
 			sendMail.FromName,
@@ -133,7 +136,7 @@ func SendMail(c *fiber.Ctx) error {
 			sendMail.Attachments); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
 		}
-	} else if sendGmailMail {
+	case sendGmailMail:
 		if err := services.SendGmailMail(
 			&appMail,
 			sendMail.FromName,
@@ -147,7 +150,7 @@ func SendMail(c *fiber.Ctx) error {
 			sendMail.Attachments); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
 		}
-	} else if sendAzureMail {
+	case sendAzureMail:
 		if err := services.SendAzureMail(
 			&appMail,
 			sendMail.To,
@@ -159,7 +162,7 @@ func SendMail(c *fiber.Ctx) error {
 			sendMail.Attachments); err != nil {
 			return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, err.Error())
 		}
-	} else {
+	default:
 		return errorutil.Response(c, fiber.StatusInternalServerError, errors.SendMail, "PrimaryType not found.")
 	}
 

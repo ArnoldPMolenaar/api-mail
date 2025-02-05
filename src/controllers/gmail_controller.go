@@ -278,9 +278,9 @@ func RestoreGmail(c *fiber.Ctx) error {
 func toGmailPagination(gmails []models.Gmail) []responses.GmailPagination {
 	gmailResponses := make([]responses.GmailPagination, len(gmails))
 
-	for i, gmail := range gmails {
+	for i := range gmails {
 		response := responses.GmailPagination{}
-		response.SetGmailPagination(&gmail)
+		response.SetGmailPagination(&gmails[i])
 		gmailResponses[i] = response
 	}
 

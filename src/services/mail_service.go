@@ -24,8 +24,8 @@ import (
 )
 
 // IsMailAvailable method to check if a mail is available.
-func IsMailAvailable(mail string) (bool, error) {
-	if result := database.Pg.Limit(1).Find(&models.Mail{}, "name = ?", mail); result.Error != nil {
+func IsMailAvailable(mailName string) (bool, error) {
+	if result := database.Pg.Limit(1).Find(&models.Mail{}, "name = ?", mailName); result.Error != nil {
 		return false, result.Error
 	} else {
 		return result.RowsAffected == 1, nil
@@ -42,7 +42,7 @@ func IsPrimaryTypeAvailable(primaryType string) (bool, error) {
 }
 
 // GetAppMail finds a mail by app, mail.
-func GetAppMail(app, mail string, preload ...bool) (models.AppMail, error) {
+func GetAppMail(app, mailName string, preload ...bool) (models.AppMail, error) {
 	var appMail models.AppMail
 	query := database.Pg
 
@@ -50,7 +50,7 @@ func GetAppMail(app, mail string, preload ...bool) (models.AppMail, error) {
 		query = query.Preload("Smtp").Preload("Gmail").Preload("Azure")
 	}
 
-	if result := database.Pg.Find(&appMail, "app_name = ? AND mail_name = ?", app, mail); result.Error != nil {
+	if result := database.Pg.Find(&appMail, "app_name = ? AND mail_name = ?", app, mailName); result.Error != nil {
 		return appMail, result.Error
 	}
 
@@ -85,7 +85,7 @@ func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body
 	}
 
 	if smtp != nil {
-		if err = SetSmtpToCache(smtp); err != nil {
+		if err := SetSmtpToCache(smtp); err != nil {
 			return err
 		}
 	} else {
@@ -107,11 +107,12 @@ func SendSmtpMail(appMail *models.AppMail, fromName, fromMail, to, subject, body
 	server.Password = password
 
 	// SMTP Encryption.
-	if smtp.Port == 465 {
+	switch smtp.Port {
+	case 465:
 		server.Encryption = mail.EncryptionSSLTLS
-	} else if smtp.Port == 587 {
+	case 587:
 		server.Encryption = mail.EncryptionSTARTTLS
-	} else {
+	default:
 		server.Encryption = mail.EncryptionNone
 	}
 
@@ -224,7 +225,7 @@ func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, bod
 	}
 
 	if gmailRecord != nil {
-		if err = SetGmailToCache(gmailRecord); err != nil {
+		if err := SetGmailToCache(gmailRecord); err != nil {
 			return err
 		}
 	} else {
@@ -276,9 +277,9 @@ func SendGmailMail(appMail *models.AppMail, fromName, fromMail, to, subject, bod
 	if len(attachments) > 0 {
 		for _, attachment := range attachments {
 			msg += "--boundary\n"
-			msg += fmt.Sprintf("Content-Type: %s; name=\"%s\"\n", attachment.FileType, attachment.FileName)
+			msg += fmt.Sprintf("Content-Type: %s; name=%q\n", attachment.FileType, attachment.FileName)
 			msg += "Content-Transfer-Encoding: base64\n"
-			msg += fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\n\n", attachment.FileName)
+			msg += fmt.Sprintf("Content-Disposition: attachment; filename=%q\n\n", attachment.FileName)
 			msg += base64.StdEncoding.EncodeToString(attachment.FileData) + "\n"
 		}
 		msg += "--boundary--"
@@ -325,7 +326,7 @@ func SendAzureMail(appMail *models.AppMail, to, subject, body, mimeType string, 
 	}
 
 	if azure != nil {
-		if err = SetAzureToCache(azure); err != nil {
+		if err := SetAzureToCache(azure); err != nil {
 			return err
 		}
 	} else {

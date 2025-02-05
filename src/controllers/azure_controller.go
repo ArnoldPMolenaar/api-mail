@@ -279,9 +279,9 @@ func RestoreAzure(c *fiber.Ctx) error {
 func toAzurePagination(azures []models.Azure) []responses.AzurePagination {
 	azureResponses := make([]responses.AzurePagination, len(azures))
 
-	for i, azure := range azures {
+	for i := range azures {
 		response := responses.AzurePagination{}
-		response.SetAzurePagination(&azure)
+		response.SetAzurePagination(&azures[i])
 		azureResponses[i] = response
 	}
 

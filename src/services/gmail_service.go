@@ -63,10 +63,10 @@ func GetGmail(id uint, unscoped ...bool) (*models.Gmail, error) {
 }
 
 // GetGmailByID gets the gmail by ID.
-func GetGmailByID(ID uint) (*models.Gmail, error) {
+func GetGmailByID(id uint) (*models.Gmail, error) {
 	gmail := &models.Gmail{}
 
-	if result := database.Pg.Find(gmail, "id = ?", ID); result.Error != nil {
+	if result := database.Pg.Find(gmail, "id = ?", id); result.Error != nil {
 		return nil, result.Error
 	}
 

@@ -234,9 +234,9 @@ func RestoreSmtp(c *fiber.Ctx) error {
 func toSmtpPagination(smtps []models.Smtp) []responses.Smtp {
 	smtpResponses := make([]responses.Smtp, len(smtps))
 
-	for i, smtp := range smtps {
+	for i := range smtps {
 		response := responses.Smtp{}
-		response.SetSmtp(&smtp)
+		response.SetSmtp(&smtps[i])
 		smtpResponses[i] = response
 	}
 

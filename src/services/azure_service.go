@@ -63,10 +63,10 @@ func GetAzure(id uint, unscoped ...bool) (*models.Azure, error) {
 }
 
 // GetAzureByID gets the azure by ID.
-func GetAzureByID(ID uint) (*models.Azure, error) {
+func GetAzureByID(id uint) (*models.Azure, error) {
 	azure := &models.Azure{}
 
-	if result := database.Pg.Find(azure, "id = ?", ID); result.Error != nil {
+	if result := database.Pg.Find(azure, "id = ?", id); result.Error != nil {
 		return nil, result.Error
 	}
 
