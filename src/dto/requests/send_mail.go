@@ -12,6 +12,6 @@ type SendMail struct {
 	MimeType    string               `json:"mimeType"`
 	Ccs         []string             `json:"ccs"`
 	Bccs        []string             `json:"bccs"`
-	Attachments []SendMailAttachment `json:"attachments"`
+	Attachments []SendMailAttachment `json:"attachments" validate:"dive"`
 	DisableSave bool                 `json:"disableSave,omitempty"`
 }
