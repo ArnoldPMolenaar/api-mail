@@ -11,6 +11,9 @@ func PrivateRoutes(a *fiber.App) {
 	// Create private routes group.
 	route := a.Group("/v1")
 
+	// Register route for /v1/apps.
+	route.Post("/apps", controllers.CreateApp)
+
 	// Register route for POST /v1/mail/send.
 	route.Post("/mail/send", middleware.MachineProtected(), controllers.SendMail)
 

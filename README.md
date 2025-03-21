@@ -41,6 +41,10 @@ To use the Outlook API, follow the instructions in the [OAUTH_AZURE.md](docs/OAU
 3. The API will be available at `http://localhost:5002`.
 
 ## 🧑‍💻 API Endpoints
+
+### App
+- `POST /v1/apps`: Create a new app.
+
 ### Send a Mail
 - `POST /v1/mail/send`: Send an email using the specified service.
 

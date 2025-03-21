@@ -13,3 +13,14 @@ func IsAppAvailable(app string) (bool, error) {
 		return result.RowsAffected == 1, nil
 	}
 }
+
+// CreateApp method to create an app.
+func CreateApp(name string) (*models.App, error) {
+	app := &models.App{Name: name}
+
+	if err := database.Pg.FirstOrCreate(&models.App{}, app).Error; err != nil {
+		return nil, err
+	}
+
+	return app, nil
+}
