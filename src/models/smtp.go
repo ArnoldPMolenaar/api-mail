@@ -1,7 +1,7 @@
 package models
 
 import (
-	"api-mail/main/src/utils"
+	"github.com/ArnoldPMolenaar/api-utils/utils"
 	"gorm.io/gorm"
 	"os"
 )
