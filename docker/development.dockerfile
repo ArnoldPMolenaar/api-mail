@@ -1,9 +1,6 @@
 FROM golang:1.23-alpine
 LABEL authors="Arnold Molenaar <arnold.molenaar@webmi.nl> (https://arnoldmolenaar.nl/)"
 
-# Install libvips
-RUN apk add git gcc g++ vips-dev
-
 # Set the Current Working Directory inside the container
 WORKDIR /app
 

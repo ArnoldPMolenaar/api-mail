@@ -16,7 +16,11 @@ COPY . .
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go build -ldflags="-s -w" -o api .
 
-FROM scratch
+# Use a minimal base image with CA certificates
+FROM alpine:latest
+
+# Install CA certificates
+RUN apk --no-cache add ca-certificates
 
 # Copy binary and config files from /build to root folder of scratch container.
 COPY --from=builder ["/build/api", "/build/.env", "/"]
