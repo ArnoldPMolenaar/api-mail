@@ -25,6 +25,7 @@ func GetSmtps(c *fiber.Ctx) error {
 		"created_at":             true,
 		"updated_at":             true,
 		"app_mails.primary_type": true,
+		"app_mails.app_name":     true,
 	}
 
 	queryFunc := pagination.Query(values, allowedColumns)
