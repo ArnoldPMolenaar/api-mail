@@ -58,13 +58,13 @@ func GetAzures(c *fiber.Ctx) error {
 	azures := make([]models.Azure, 0)
 	values := c.Request().URI().QueryArgs()
 	allowedColumns := map[string]bool{
-		"client_id":              true,
-		"tenant_id":              true,
-		"user":                   true,
-		"created_at":             true,
-		"updated_at":             true,
-		"app_mails.primary_type": true,
-		"app_mails.app_name":     true,
+		"client_id":    true,
+		"tenant_id":    true,
+		"user":         true,
+		"created_at":   true,
+		"updated_at":   true,
+		"primary_type": true,
+		"app_name":     true,
 	}
 
 	queryFunc := pagination.Query(values, allowedColumns)

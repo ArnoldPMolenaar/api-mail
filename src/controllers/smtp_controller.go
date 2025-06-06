@@ -18,14 +18,14 @@ func GetSmtps(c *fiber.Ctx) error {
 	smtps := make([]models.Smtp, 0)
 	values := c.Request().URI().QueryArgs()
 	allowedColumns := map[string]bool{
-		"id":                     true,
-		"username":               true,
-		"host":                   true,
-		"port":                   true,
-		"created_at":             true,
-		"updated_at":             true,
-		"app_mails.primary_type": true,
-		"app_mails.app_name":     true,
+		"id":           true,
+		"username":     true,
+		"host":         true,
+		"port":         true,
+		"created_at":   true,
+		"updated_at":   true,
+		"primary_type": true,
+		"app_name":     true,
 	}
 
 	queryFunc := pagination.Query(values, allowedColumns)

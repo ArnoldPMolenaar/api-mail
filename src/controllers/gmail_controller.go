@@ -58,12 +58,12 @@ func GetGmails(c *fiber.Ctx) error {
 	gmails := make([]models.Gmail, 0)
 	values := c.Request().URI().QueryArgs()
 	allowedColumns := map[string]bool{
-		"client_id":              true,
-		"user":                   true,
-		"created_at":             true,
-		"updated_at":             true,
-		"app_mails.primary_type": true,
-		"app_mails.app_name":     true,
+		"client_id":    true,
+		"user":         true,
+		"created_at":   true,
+		"updated_at":   true,
+		"primary_type": true,
+		"app_name":     true,
 	}
 
 	queryFunc := pagination.Query(values, allowedColumns)
